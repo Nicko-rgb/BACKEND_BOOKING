@@ -49,6 +49,10 @@ const corsOrigins = process.env.CORS_ORIGIN || 'http://localhost:3000';
 const origins = corsOrigins.split(',').map(origin => origin.trim());
 const isDev = process.env.NODE_ENV === 'development';
 
+// Confiar en el primer proxy (Nginx) para leer la IP real del cliente ─────────
+// Sin esto, req.ip siempre sería 127.0.0.1 (Nginx → Node)
+app.set('trust proxy', 1);
+
 // Seguridad — headers HTTP protectores (XSS, clickjacking, MIME sniffing, etc.)
 app.use(helmet());
 
