@@ -66,7 +66,7 @@ router.put(
 
 // ── Portal de Reservas — sucursales públicas ──────────────────────────────────
 
-router.get('/public/subsidiaries',      validateQuery(publicSucursalQueryDto), GlobalErrorHandler.asyncHandler(getPublicSucursales));
-router.get('/public/subsidiaries/:id',  GlobalErrorHandler.asyncHandler(getPublicSucursal));
+router.get('/public/subsidiaries', validateQuery(publicSucursalQueryDto), GlobalErrorHandler.asyncHandler(getPublicSucursales));
+router.get('/public/subsidiaries/:id', GlobalErrorHandler.asyncHandler(getPublicSucursal));
 
 module.exports = router;

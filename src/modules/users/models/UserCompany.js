@@ -1,9 +1,8 @@
 /**
  * Modelo UserCompany - Asignación contextual de usuarios a empresas/sucursales
  *
- * Vincula un usuario con una empresa o sucursal específica y su rol dentro de ella.
- * Esto permite el aislamiento de datos por tenant: un super_admin solo ve sus empresas,
- * un administrador solo ve su sucursal asignada, un empleado ídem.
+ * Vincula un usuario con una empresa o sucursal específica y su clasificador de rol.
+ * El campo `role` es varchar — no es FK funcional. Los accesos se evalúan por user_permissions.
  *
  * Jerarquía:
  *   system        → sin restricción (no requiere registro aquí)
@@ -14,7 +13,6 @@
  * Relaciones:
  * - Pertenece a un User
  * - Pertenece a un Company (empresa o sucursal)
- * - Pertenece a un Role
  */
 const { DataTypes } = require('sequelize');
 const sequelize = require('../../../config/db');
@@ -44,14 +42,12 @@ const UserCompany = sequelize.define('UserCompany', {
         },
         comment: 'Empresa o sucursal a la que pertenece el usuario'
     },
-    role_id: {
-        type: DataTypes.BIGINT,
+    // Clasificador de rol en este contexto (no FK — no controla accesos, solo display).
+    // Valores: 'super_admin', 'administrador', 'empleado'
+    role: {
+        type: DataTypes.STRING(50),
         allowNull: false,
-        references: {
-            model: 'dsg_bss_roles',
-            key: 'role_id'
-        },
-        comment: 'Rol del usuario dentro de esta empresa/sucursal'
+        comment: 'Clasificador del rol del usuario en esta empresa/sucursal (solo display)'
     },
     tenant_id: {
         type: DataTypes.STRING(36),
@@ -89,10 +85,11 @@ const UserCompany = sequelize.define('UserCompany', {
     createdAt: 'created_at',
     updatedAt: 'updated_at',
     indexes: [
+        // Un usuario solo puede tener una asignación por empresa/sucursal ──────────────
         {
             unique: true,
-            fields: ['user_id', 'company_id', 'role_id'],
-            name: 'unique_user_company_role'
+            fields: ['user_id', 'company_id'],
+            name: 'unique_user_company'
         },
         {
             fields: ['user_id'],
@@ -119,11 +116,6 @@ UserCompany.associate = function (models) {
     UserCompany.belongsTo(models.Company, {
         foreignKey: 'company_id',
         as: 'company'
-    });
-
-    UserCompany.belongsTo(models.Role, {
-        foreignKey: 'role_id',
-        as: 'role'
     });
 };
 

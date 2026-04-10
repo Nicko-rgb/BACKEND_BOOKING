@@ -1,6 +1,12 @@
+/**
+ * permissionSeed — Pobla el catálogo de permisos (dsg_bss_permissions).
+ *
+ * También define DEFAULT_PERMISSIONS por tipo de rol, que UserRepository
+ * usa al crear nuevos usuarios para insertar sus permisos iniciales.
+ *
+ * Ya no sincroniza dsg_bss_role_permissions (tabla eliminada).
+ */
 const { Permission } = require('../modules/catalogs/models');
-const { RolePermission } = require('../modules/catalogs/models');
-const { Role } = require('../modules/catalogs/models');
 
 /**
  * Catálogo completo de permisos del sistema.
@@ -46,12 +52,12 @@ const PERMISSIONS_CATALOG = [
     { key: 'statistics.view',         label: 'Ver estadísticas',                 module: 'reports', app_access: 'admin' },
 
     // ── Módulo: payment (gestión administrativa) ──────────────────────
-    { key: 'payment.reorder',          label: 'Reordenar métodos de pago de sucursal', module: 'payment',  app_access: 'admin' },
-    { key: 'payment_account.manage',   label: 'Crear y editar cuentas de pago',        module: 'payment',  app_access: 'admin' },
+    { key: 'payment.reorder',         label: 'Reordenar métodos de pago de sucursal', module: 'payment',  app_access: 'admin' },
+    { key: 'payment_account.manage',  label: 'Crear y editar cuentas de pago',        module: 'payment',  app_access: 'admin' },
 
     // ── Módulo: config ─────────────────────────────────────────────────
-    { key: 'config.owner_manage',      label: 'Gestionar datos del propietario',       module: 'config',   app_access: 'admin' },
-    { key: 'config.user_assign',       label: 'Asignar admin/empleado a sucursales',   module: 'config',   app_access: 'admin' },
+    { key: 'config.owner_manage',     label: 'Gestionar datos del propietario',       module: 'config',   app_access: 'admin' },
+    { key: 'config.user_assign',      label: 'Asignar admin/empleado a sucursales',   module: 'config',   app_access: 'admin' },
 
     // ── Módulo: system ─────────────────────────────────────────────────
     { key: 'system.full_access',      label: 'Acceso total al sistema',          module: 'system', app_access: 'admin' },
@@ -62,10 +68,12 @@ const PERMISSIONS_CATALOG = [
 ];
 
 /**
- * Mapeo de permisos por rol.
- * Fuente de verdad para poblar dsg_bss_role_permissions.
+ * Permisos por defecto que se insertan en user_permissions al crear un usuario.
+ * Usado por UserRepository.createUserWithPermissions() y assignUserToCompany().
+ *
+ * Fuente de verdad para los permisos iniciales de cada tipo de usuario.
  */
-const ROLE_PERMISSIONS = {
+const DEFAULT_PERMISSIONS = {
     cliente: [
         'booking.create',
         'booking.view_own',
@@ -75,38 +83,29 @@ const ROLE_PERMISSIONS = {
         'profile.edit_own',
     ],
     empleado: [
-        // Reservas — gestión completa dentro de su sucursal
         'booking.create',
         'booking.view_facility',
         'booking.confirm',
         'booking.cancel',
-        // Instalaciones — solo visualización (no puede crear ni editar)
         'space.view',
-        // Pagos — solo reordenar métodos existentes de su sucursal
         'payment.reorder',
     ],
     administrador: [
-        // Instalaciones — puede editar su sucursal y sus espacios (no crear)
         'facility.manage_own',
         'space.manage_own',
         'space.view',
         'business_hour.manage',
         'media.manage_facility',
         'rating.view_facility',
-        // Reservas
         'booking.view_facility',
         'booking.confirm',
         'booking.cancel',
-        // Pagos — solo reordenar métodos existentes
         'payment.reorder',
-        // Personal — gestiona empleados de su sucursal
         'employee.manage_own',
-        // Reportes
         'reports.view',
         'statistics.view',
     ],
     super_admin: [
-        // Empresa y sucursales — puede editar (no crear nuevas)
         'company.manage_own',
         'subsidiary.manage_own',
         'facility.manage_own',
@@ -115,82 +114,46 @@ const ROLE_PERMISSIONS = {
         'business_hour.manage',
         'media.manage_facility',
         'rating.view_facility',
-        // Reservas
         'booking.view_facility',
         'booking.confirm',
         'booking.cancel',
-        // Pagos — reordena métodos y gestiona cuentas de pago
         'payment.reorder',
         'payment_account.manage',
-        // Usuarios — asigna admins y empleados a sus sucursales
         'administrator.manage_own',
         'employee.manage_own',
         'config.user_assign',
-        // Reportes
         'reports.view',
         'statistics.view',
     ],
     system: [
-        // Acceso total — bypasea todos los checks
+        // El middleware ya hace bypass para system.full_access.
+        // Se asignan todos los permisos del catálogo en systemUserSeed.
         'system.full_access',
-        // Gestión global de empresas, usuarios, instalaciones
-        'company.manage_all',
-        'user.manage_all',
-        'facility.manage_all',
-        'space.view',
-        // Reservas y pagos
-        'booking.manage_all',
-        'payment.manage_all',
-        'payment.reorder',
-        'payment_account.manage',
-        // Configuración avanzada — propietario, tipos de pago, catálogos
-        'config.owner_manage',
-        'config.user_assign',
-        'country.manage',
-        'payment_type.manage',
-        // Sistema
-        'role.manage',
-        'menu.manage',
-        // Reportes
-        'reports.view',
-        'statistics.view',
     ],
 };
 
+/**
+ * Popula el catálogo de permisos en dsg_bss_permissions.
+ * Inserta nuevos permisos y actualiza los existentes.
+ */
 const seedPermissions = async () => {
     console.log('🔐 Creando catálogo de permisos...');
 
-    // 1. Insertar/actualizar permisos del catálogo
     for (const perm of PERMISSIONS_CATALOG) {
         const [, created] = await Permission.findOrCreate({
-            where: { key: perm.key },
+            where:    { key: perm.key },
             defaults: perm,
         });
+        // Actualizar label/módulo si el permiso ya existía ───────────────────
         if (!created) {
             await Permission.update(
-                { label: perm.label, description: perm.description, module: perm.module, app_access: perm.app_access },
+                { label: perm.label, module: perm.module, app_access: perm.app_access },
                 { where: { key: perm.key } }
             );
         }
     }
+
     console.log(`   ✅ ${PERMISSIONS_CATALOG.length} permisos sincronizados`);
-
-    // 2. Sincronizar role_permissions — reemplaza completo para que quede exacto al mapeo
-    console.log('🔗 Sincronizando permisos por rol...');
-    for (const [roleName, permKeys] of Object.entries(ROLE_PERMISSIONS)) {
-        const role = await Role.findOne({ where: { role_name: roleName } });
-        if (!role) {
-            console.warn(`   ⚠️  Rol no encontrado: ${roleName} — saltando`);
-            continue;
-        }
-
-        // Eliminar asignaciones antiguas del rol y re-insertar desde el mapeo actual
-        await RolePermission.destroy({ where: { role_id: role.role_id } });
-        await RolePermission.bulkCreate(
-            permKeys.map(permKey => ({ role_id: role.role_id, permission_key: permKey }))
-        );
-        console.log(`   ✅ ${roleName}: ${permKeys.length} permisos sincronizados`);
-    }
 };
 
-module.exports = { seedPermissions, PERMISSIONS_CATALOG, ROLE_PERMISSIONS };
+module.exports = { seedPermissions, PERMISSIONS_CATALOG, DEFAULT_PERMISSIONS };

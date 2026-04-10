@@ -1,15 +1,17 @@
 /**
  * Modelo User - Gestión de usuarios del sistema
- * 
+ *
  * Este modelo maneja la información básica de autenticación y contacto de los usuarios.
  * Los usuarios pueden ser clientes que reservan espacios deportivos, administradores
  * de instalaciones, o administradores del sistema.
- * 
+ *
+ * El campo `role` es un clasificador de display (varchar) — no es una FK funcional.
+ * Todos los accesos se evalúan exclusivamente por user_permissions.
+ *
  * Relaciones:
  * - Tiene muchos Booking (reservas)
  * - Tiene muchos Rating (calificaciones)
- * - Tiene muchos Notification (notificaciones)
- * - Pertenece a muchos Role a través de UserRole
+ * - Tiene muchos UserPermission (permisos directos)
  * - Tiene una Persona (información personal detallada)
  */
 const { DataTypes } = require('sequelize');
@@ -53,6 +55,14 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING(50),
         allowNull: true, // 'google', 'facebook', 'apple', etc.
         comment: 'Proveedor de autenticación social (google, facebook, apple, etc.)'
+    },
+    // Clasificador de display del usuario — no es FK ni controla acceso.
+    // Los accesos se evalúan exclusivamente por user_permissions.
+    // Valores: 'cliente', 'empleado', 'administrador', 'super_admin', 'system'
+    role: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        comment: 'Clasificador de tipo de usuario (solo display, los accesos van por user_permissions)'
     },
     is_enabled: {
         type: DataTypes.BOOLEAN,
@@ -106,19 +116,6 @@ User.associate = function (models) {
     User.hasOne(models.Person, {
         foreignKey: 'user_id',
         as: 'person'
-    });
-
-    // Un usuario puede tener múltiples roles
-    User.hasMany(models.UserRole, {
-        foreignKey: 'user_id'
-    });
-
-    // Relación many-to-many con Role a través de UserRole
-    User.belongsToMany(models.Role, {
-        through: models.UserRole,
-        foreignKey: 'user_id',
-        otherKey: 'role_id',
-        as: 'roles'
     });
 
     // Asociación polimórfica con Media

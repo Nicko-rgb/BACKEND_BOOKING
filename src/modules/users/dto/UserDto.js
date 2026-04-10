@@ -99,53 +99,48 @@ class UserDto {
 
     static toLoginResponse(loginResult) {
         return {
-            token: loginResult.token,
-            user: this.toAuthUser(loginResult.user),
-            role: loginResult.role || '',
-            roles: loginResult.roles || [],
+            token:       loginResult.token,
+            user:        this.toAuthUser(loginResult.user),
+            role:        loginResult.role || '',        // varchar clasificador
             permissions: loginResult.permissions || []
         }
     }
 
     static toSocialLoginResponse(loginResult) {
         return {
-            token: loginResult.token,
-            user: this.toAuthUser(loginResult.user),
-            role: loginResult.role || '',
-            roles: loginResult.roles || [],
+            token:       loginResult.token,
+            user:        this.toAuthUser(loginResult.user),
+            role:        loginResult.role || '',
             permissions: loginResult.permissions || []
         }
     }
 
     static toAdminLoginResponse(loginResult) {
         return {
-            token: loginResult.token,
-            user: this.toAuthUser(loginResult.user),
-            role: loginResult.role || '',
-            roles: loginResult.roles || [],
+            token:       loginResult.token,
+            user:        this.toAuthUser(loginResult.user),
+            role:        loginResult.role || '',        // varchar clasificador
             permissions: loginResult.permissions || [],
             company_ids: loginResult.company_ids || [],
-            tenant_id: loginResult.tenant_id || null
+            tenant_id:   loginResult.tenant_id   || null
         }
     }
 
     static toUserResponse(user) {
-        const primaryRole = user.roles?.[0] || {};
         return {
-            user_id: user.user_id,
-            name: user.first_name,
-            lastName: user.last_name,
-            email: user.email,
-            phone: user.person?.phone || user.phone || '',
+            user_id:         user.user_id,
+            name:            user.first_name,
+            lastName:        user.last_name,
+            email:           user.email,
+            phone:           user.person?.phone    || user.phone || '',
             document_number: user.person?.document_number || '',
-            document_type: user.person?.document_type || null,
-            avatar_url: user.avatar_url,
-            status: user.is_enabled ? 'Activo' : 'Inactivo',
+            document_type:   user.person?.document_type   || null,
+            avatar_url:      user.avatar_url,
+            status:          user.is_enabled ? 'Activo' : 'Inactivo',
             social_provider: user.social_provider,
-            created_at: user.created_at,
-            updated_at: user.updated_at,
-            role_id: primaryRole.role_id,
-            role_name: primaryRole.role_name
+            created_at:      user.created_at,
+            updated_at:      user.updated_at,
+            role:            user.role || null,    // varchar clasificador (reemplaza role_id/role_name)
         }
     }
 }
@@ -268,8 +263,8 @@ UserDto.toCompanyUserResponse = function(assignment) {
         last_name:       user.last_name,
         email:           user.email,
         is_enabled:      user.is_enabled,
-        role_id:         assignment.role?.role_id,
-        role_name:       assignment.role?.role_name,
+        // role es varchar clasificador (no FK — reemplaza role_id/role_name)
+        role:            assignment.role || null,
         company_id:      assignment.company_id,
         company_name:    assignment.company_name || null,
         assigned_at:     assignment.created_at,
@@ -287,8 +282,8 @@ UserDto.toStaffItem = function(assignment) {
         email:           user.email,
         is_enabled:      user.is_enabled,
         created_at:      user.created_at,
-        role_id:         assignment.role?.role_id,
-        role_name:       assignment.role?.role_name,
+        // role es varchar clasificador (no FK — reemplaza role_id/role_name)
+        role:            assignment.role || null,
         company_id:      assignment.company_id,
         company_name:    assignment.company?.name || null,
         tenant_id:       assignment.company?.tenant_id || null,

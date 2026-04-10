@@ -1,5 +1,6 @@
-const { seedRolesAndSystemUser } = require('./roleSeed');
+const { seedSystemUser } = require('./systemUserSeed');
 const { seedPaises } = require('./paisesSeed');
+const { seedUbigeo } = require('./ubigeoSeed');
 const { seedSports } = require('./sportSeed');
 const { seedSucursales } = require('./sucursalSeed');
 const { seedSpaces } = require('./spaceSeed');
@@ -7,30 +8,45 @@ const { seedPaymentTypes } = require('./paymentTypeSeed');
 const { seedEmpresas } = require('./empresasSeed');
 const { seedPermissions } = require('./permissionSeed');
 const { seedMenuItems } = require('./menuItemSeed');
+const { runOnce } = require('./SeedMeta');
 
 /**
  * Seeds esenciales — corren en cualquier entorno.
- * Incluye roles, permisos, menú, países, deportes y tipos de pago.
- * Son necesarios para que el sistema funcione correctamente.
+ * Cada seed está protegido por runOnce: si ya fue ejecutado en una
+ * corrida anterior, se salta automáticamente sin tocar la base de datos.
  */
 async function runEssentialSeeds() {
     console.log('🌱 Poblando datos esenciales del sistema...');
 
-    // 1. Roles y Usuario del Sistema (Requerido para auditoría)
-    const systemUserId = await seedRolesAndSystemUser();
+    // 1. Catálogo de permisos — debe correr primero (systemUserSeed lo necesita)
+    await runOnce('permissionsSeed', () => seedPermissions());
 
-    // 2. Permisos y asignación a roles (debe ir después de roles)
-    await seedPermissions();
+    // 2. Usuario system — retorna su ID para pasarlo a los seeds siguientes
+    let systemUserId;
+    await runOnce('systemUserSeed', async () => {
+        systemUserId = await seedSystemUser();
+    });
+
+    // Si el seed ya corrió antes, recuperar el systemUserId de la DB ───────────
+    if (!systemUserId) {
+        const { User } = require('../modules/users/models');
+        const systemEmail = process.env.SYSTEM_SEED_EMAIL || 'system@gmail.com';
+        const systemUser  = await User.findOne({ where: { email: systemEmail } });
+        systemUserId = systemUser?.user_id;
+    }
 
     // 3. Ítems de menú dinámico
-    await seedMenuItems();
+    await runOnce('menuItemsSeed', () => seedMenuItems());
 
-    // 4. Geografía (Países, Deptos, etc)
-    await seedPaises(systemUserId);
+    // 4. Países
+    await runOnce('paisesSeed', () => seedPaises(systemUserId));
 
-    // 5. Catálogos Deportivos y Pagos
-    await seedSports(systemUserId);
-    await seedPaymentTypes(systemUserId);
+    // 5. Ubigeo completo de Perú (departamentos, provincias, distritos)
+    await runOnce('ubigeoSeed', () => seedUbigeo());
+
+    // 6. Catálogos Deportivos y Pagos
+    await runOnce('sportsSeed',      () => seedSports(systemUserId));
+    await runOnce('paymentTypesSeed', () => seedPaymentTypes(systemUserId));
 
     return systemUserId;
 }
@@ -43,14 +59,10 @@ async function runEssentialSeeds() {
 async function runDemoSeeds(systemUserId) {
     console.log('🧪 Poblando datos de demo (desarrollo)...');
 
-    // 6. Empresas y Sucursales de prueba
-    await seedSucursales(systemUserId);
-
-    // 7. Espacios Deportivos de prueba
-    await seedSpaces(systemUserId);
-
-    // 8. Empresas de prueba con tenants separados (3 empresas, 3 sucursales, 6 espacios)
-    await seedEmpresas(systemUserId);
+    // También protegidos por runOnce para evitar duplicados en reinicios ──────
+    await runOnce('sucursalesSeed', () => seedSucursales(systemUserId));
+    await runOnce('spacesSeed',     () => seedSpaces(systemUserId));
+    await runOnce('empresasSeed',   () => seedEmpresas(systemUserId));
 }
 
 /**

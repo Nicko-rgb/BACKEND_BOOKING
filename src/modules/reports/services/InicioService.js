@@ -30,7 +30,7 @@ class InicioService {
      */
     _detectScope(user) {
         if (user.permissions?.includes('system.full_access'))                      return 'system';
-        if (user.roles?.includes('super_admin') || user.role === 'super_admin')    return 'super_admin';
+        if (user.role === 'super_admin')    return 'super_admin';
         return 'subsidiary';
     }
 

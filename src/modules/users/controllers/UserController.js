@@ -56,6 +56,12 @@ const updateStaffUser = async (req, res) => {
     await userHandler.updateStaffUserHandler(res, userId, data);
 };
 
+// Extrae el token del header y lo pasa al handler para su revocación
+const logout = async (req, res) => {
+    const token = req.headers.authorization.split(' ')[1];
+    await userHandler.logoutHandler(res, token);
+};
+
 module.exports = {
     createUser,
     loginUser,
@@ -66,5 +72,6 @@ module.exports = {
     getUsersByCompany,
     getTenantStaff,
     getStaffOverview,
-    updateStaffUser
+    updateStaffUser,
+    logout
 };

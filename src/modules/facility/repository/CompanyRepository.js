@@ -9,7 +9,7 @@ const Company = require('../models/Company');
 const Configuration = require('../models/Configuration');
 const Space = require('../models/Space');
 const ConfigurationPayment = require('../models/ConfigurationPayment');
-const { Country, SurfaceType, SportType, SportCategory, Role, Ubigeo } = require('../../catalogs/models');
+const { Country, SurfaceType, SportType, SportCategory, Ubigeo } = require('../../catalogs/models');
 const { Media } = require('../../media/models');
 const { UserCompany, User, Person } = require('../../users/models');
 
@@ -158,7 +158,11 @@ const findAll = async (filters = {}, pagination = {}, transaction = null) => {
     // Construir condiciones WHERE
     const whereConditions = {};
 
-    if (filters.tenant_id) {
+    // Filtro por lista de IDs — tiene prioridad sobre tenant_id
+    // Se usa cuando el usuario tiene varias empresas en distintos tenants
+    if (filters.company_ids && filters.company_ids.length > 0) {
+        whereConditions.company_id = { [Op.in]: filters.company_ids };
+    } else if (filters.tenant_id) {
         whereConditions.tenant_id = filters.tenant_id;
     }
 
@@ -419,7 +423,8 @@ const getCompanyDetails = async (companyId, transaction = null) => {
                 model: UserCompany,
                 as: 'userAssignments',
                 required: false,
-                where: { is_active: true },
+                // Filtrar por role varchar — solo trae el super_admin de la empresa ─────
+                where: { is_active: true, role: 'super_admin' },
                 include: [
                     {
                         model: User,
@@ -436,13 +441,6 @@ const getCompanyDetails = async (companyId, transaction = null) => {
                             }],
                             required: false
                         }]
-                    },
-                    {
-                        model: Role,
-                        as: 'role',
-                        attributes: ['role_name'],
-                        where: { role_name: 'super_admin' },
-                        required: true
                     }
                 ]
             },
@@ -544,7 +542,7 @@ const getActiveSubsidiaries = async ({
     // Condiciones base: solo sucursales activas ────────────────────────────────
     const where = {
         parent_company_id: { [Op.ne]: null },
-        status:     'ACTIVE',
+        status: 'ACTIVE',
         is_enabled: 'A'
     };
 
@@ -571,9 +569,9 @@ const getActiveSubsidiaries = async ({
 
     // Ordenamiento en DB (distance no se ordena aquí, el Service lo hace post-Haversine) ─
     let order = [['name', 'ASC']]; // default
-    if (sort_by === 'price_asc')  order = [['min_price', 'ASC']];
+    if (sort_by === 'price_asc') order = [['min_price', 'ASC']];
     if (sort_by === 'price_desc') order = [['min_price', 'DESC']];
-    if (sort_by === 'name')       order = [['name', 'ASC']];
+    if (sort_by === 'name') order = [['name', 'ASC']];
 
     // Include de espacios — si hay filtro de deporte se convierte en INNER JOIN ─
     const spaceInclude = {
@@ -645,7 +643,7 @@ const findCountryByIso = async (iso_country) => {
 const findUbigeoByNameAndLevel = async (name, level) => {
     return await Ubigeo.findOne({
         where: {
-            name:  { [Op.iLike]: name },
+            name: { [Op.iLike]: name },
             level: Number(level)
         }
     });

@@ -6,13 +6,26 @@ const { Op } = require('sequelize');
 
 class BookingRepository {
     /**
-     * Verifica si existe solapamiento de horarios (reservas confirmadas y holds activos)
-     * @param {string|number} excludeUserId - Si se provee, excluye los holds de ese usuario
+     * Verifica si existe solapamiento de horarios (reservas confirmadas y holds activos).
+     *
+     * Cuando se pasa una `transaction` activa se ejecuta con SELECT FOR UPDATE,
+     * serializando la lectura y eliminando la ventana de race condition (TOCTOU).
+     * Sin transacción (ej: consultas de disponibilidad desde el frontend) opera
+     * en modo lectura normal para no bloquear innecesariamente.
+     *
+     * @param {string|number} excludeUserId - Excluye los holds de este usuario
+     * @param {import('sequelize').Transaction|null} transaction - Transacción activa
      */
-    async checkOverlap(space_id, date, start_time, end_time, excludeUserId = null) {
+    async checkOverlap(space_id, date, start_time, end_time, excludeUserId = null, transaction = null) {
+        // Opciones de bloqueo: solo aplican si se ejecuta dentro de una transacción
+        const lockOpts = transaction
+            ? { transaction, lock: transaction.LOCK.UPDATE }
+            : {};
+
         // 1. Reservas activas: CONFIRMED o PENDING (CASH sin cobrar)
-        //    Ambos estados bloquean el slot — no se puede reservar encima de un PENDING
-        const bookingOverlap = await Booking.count({
+        //    Usamos findOne en lugar de count para soportar SELECT FOR UPDATE
+        const bookingOverlap = await Booking.findOne({
+            attributes: ['booking_id'],
             where: {
                 space_id,
                 booking_date: date,
@@ -21,10 +34,11 @@ class BookingRepository {
                     { start_time: { [Op.lt]: end_time } },
                     { end_time: { [Op.gt]: start_time } }
                 ]
-            }
+            },
+            ...lockOpts
         });
 
-        if (bookingOverlap > 0) return true;
+        if (bookingOverlap) return true;
 
         // 2. Holds activos (excluyendo al propio usuario si se indica)
         const holdWhereClause = {
@@ -42,8 +56,13 @@ class BookingRepository {
             holdWhereClause.user_id = { [Op.ne]: excludeUserId };
         }
 
-        const holdOverlap = await BookingHold.count({ where: holdWhereClause });
-        return holdOverlap > 0;
+        const holdOverlap = await BookingHold.findOne({
+            attributes: ['hold_id'],
+            where: holdWhereClause,
+            ...lockOpts
+        });
+
+        return !!holdOverlap;
     }
 
     /**

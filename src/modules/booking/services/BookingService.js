@@ -69,7 +69,7 @@ class BookingService {
                 if (existingUser) {
                     user_id = existingUser.user_id;
                 } else {
-                    const newUser = await UserRepository.createUserWithRole({
+                    const newUser = await UserRepository.createUserWithPermissions({
                         first_name: client_name || 'Cliente',
                         last_name: client_last_name || 'Externo',
                         email: email || `external_${Date.now()}@booking.sport`,
@@ -94,14 +94,17 @@ class BookingService {
                 total_amount: data.total_amount
             }];
 
-            // ── FASE 2: Validar disponibilidad (overlap) ─────────────────────────────
+            // ── FASE 2: Validar disponibilidad (overlap) con SELECT FOR UPDATE ────────
+            // Se pasa la transacción activa para serializar la lectura y eliminar
+            // la ventana de race condition entre el check y la inserción del hold.
             for (const bookingData of bookingsToProcess) {
                 const isOverlap = await BookingRepository.checkOverlap(
                     bookingData.space_id,
                     bookingData.booking_date,
                     bookingData.start_time,
                     bookingData.end_time,
-                    user_id
+                    user_id,
+                    transaction  // ← lock transaccional
                 );
                 if (isOverlap) {
                     throw new ConflictError(
@@ -401,11 +404,14 @@ class BookingService {
             const createdHolds = [];
 
             for (const bookingData of bookings) {
+                // Pasar transaction para ejecutar SELECT FOR UPDATE y evitar race condition
                 const isOverlap = await BookingRepository.checkOverlap(
                     space_id,
                     bookingData.booking_date,
                     bookingData.start_time,
-                    bookingData.end_time
+                    bookingData.end_time,
+                    null,         // excludeUserId — no aplica para holds nuevos
+                    transaction   // lock transaccional
                 );
                 if (isOverlap) {
                     throw new ConflictError(`El horario ${bookingData.start_time} - ${bookingData.end_time} ya no está disponible.`);
@@ -564,7 +570,12 @@ class BookingService {
                     throw new ConflictError(`El horario ${startTime} - ${endTime} no está disponible en el horario de operación del día ${targetDayName}.`);
                 }
 
-                const isOverlap = await BookingRepository.checkOverlap(space_id, target_date, startTime, endTime);
+                // Pasar transaction para ejecutar SELECT FOR UPDATE y evitar race condition
+                const isOverlap = await BookingRepository.checkOverlap(
+                    space_id, target_date, startTime, endTime,
+                    null,        // excludeUserId — no aplica para copia de holds
+                    transaction  // lock transaccional
+                );
                 if (isOverlap) {
                     throw new ConflictError(`El horario ${startTime} - ${endTime} ya está ocupado en la fecha seleccionada.`);
                 }

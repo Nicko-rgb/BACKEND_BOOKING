@@ -2,7 +2,9 @@
  * Handler de errores global para toda la aplicación
  * Centraliza el manejo de errores para evitar redundancia entre módulos
  */
-const ApiResponse = require('../utils/ApiResponse')
+const ApiResponse = require('../utils/ApiResponse');
+const logger = require('../../config/logger');
+const Sentry = require('@sentry/node');
 
 class GlobalErrorHandler {
     /**
@@ -13,14 +15,21 @@ class GlobalErrorHandler {
      * @param {Function} next - Next middleware function
      */
     static handleError(error, req, res, next) {
-        // Log del error para el desarrollador en la terminal del backend (solo en desarrollo)
-        if (process.env.NODE_ENV === 'development') {
-            console.error(' [Backend Error] ', {
-                message: error.message,
-                stack: error.stack,
-                name: error.name,
-                path: req.path,
-                method: req.method
+        // Log estructurado del error con contexto del request
+        logger.error(error.message, {
+            requestId: req.id,
+            name:      error.name,
+            path:      req.path,
+            method:    req.method,
+            // Stack trace solo en desarrollo para no exponer internals en producción
+            ...(process.env.NODE_ENV !== 'production' && { stack: error.stack })
+        });
+
+        // Reportar a Sentry solo errores 5xx (internos) — excluir errores esperados de cliente
+        const statusCode = error.statusCode || 500;
+        if (statusCode >= 500 && process.env.SENTRY_DSN) {
+            Sentry.captureException(error, {
+                extra: { requestId: req.id, path: req.path, method: req.method }
             });
         }
 
