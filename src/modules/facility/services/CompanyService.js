@@ -261,6 +261,9 @@ const getPublicSucursales = async ({
     let items;
     let total;
 
+    // Flag para indicar al cliente si se usó fallback a nivel país ──────────────
+    let fallbackToCountry = false;
+
     if (hasCoords) {
         // Con coordenadas: traer todo sin paginación DB para poder filtrar por radio ────
         const { rows } = await CompanyRepository.getActiveSubsidiaries({
@@ -272,10 +275,20 @@ const getPublicSucursales = async ({
         // Enriquecer con distancia Haversine ───────────────────────────────────
         let enriched = rows.map(s => mapSucursal(s, userLat, userLng));
 
-        // Filtrar por radio y ordenar ───────────────────────────────────────────
-        enriched = enriched.filter(s => s._distance_km == null || s._distance_km <= parseFloat(radius_km));
+        // Filtrar por radio ────────────────────────────────────────────────────
+        const withinRadius = enriched.filter(
+            s => s._distance_km == null || s._distance_km <= parseFloat(radius_km)
+        );
 
-        // Aplicar ordenamiento en memoria según sort_by ──────────────────────────
+        // Fallback: si el radio no devuelve resultados, mostrar todo el país ──
+        if (withinRadius.length === 0 && enriched.length > 0) {
+            fallbackToCountry = true;
+        }
+
+        // Usar resultados del radio o fallback al país completo ───────────────
+        enriched = fallbackToCountry ? enriched : withinRadius;
+
+        // Aplicar ordenamiento en memoria según sort_by ───────────────────────
         if (sort_by === 'price_asc') {
             enriched.sort((a, b) => (parseFloat(a.min_price) || 0) - (parseFloat(b.min_price) || 0));
         } else if (sort_by === 'price_desc') {
@@ -283,7 +296,7 @@ const getPublicSucursales = async ({
         } else if (sort_by === 'name') {
             enriched.sort((a, b) => a.name.localeCompare(b.name));
         } else {
-            // default: distance
+            // default: distance — más cercano primero aunque sea fallback ─────
             enriched.sort((a, b) => (a._distance_km ?? Infinity) - (b._distance_km ?? Infinity));
         }
 
@@ -293,7 +306,7 @@ const getPublicSucursales = async ({
         const start = (pageNum - 1) * limitNum;
         items = enriched.slice(start, start + limitNum);
     } else {
-        // Sin coordenadas: paginación en DB ─────────────────────────────────────────────
+        // Sin coordenadas: paginación en DB ────────────────────────────────────
         const offset = (pageNum - 1) * limitNum;
         const { rows, count } = await CompanyRepository.getActiveSubsidiaries({
             ...repoParams,
@@ -312,7 +325,8 @@ const getPublicSucursales = async ({
             page: pageNum,
             limit: limitNum,
             totalPages: Math.ceil(total / limitNum)
-        }
+        },
+        fallbackToCountry
     };
 };
 

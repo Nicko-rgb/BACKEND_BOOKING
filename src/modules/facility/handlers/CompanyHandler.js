@@ -59,10 +59,14 @@ const toggleCompanyEnabled = async (res, id, userId) => {
  * @param {object} filters — validados por publicSucursalQueryDto
  */
 const getPublicSucursales = async (res, filters = {}) => {
-    const { items, meta } = await CompanyService.getPublicSucursales(filters);
+    const { items, meta, fallbackToCountry } = await CompanyService.getPublicSucursales(filters);
     // Formatear items con el DTO de respuesta de lista ─────────────────────────
     const response = CompanyDto.toResponseBSList(items);
-    return ApiResponse.ok(res, { items: response, meta }, 'Lista de sucursales obtenida exitosamente.');
+    return ApiResponse.ok(
+        res,
+        { items: response, meta, fallback_to_country: fallbackToCountry },
+        'Lista de sucursales obtenida exitosamente.'
+    );
 };
 
 // Datos de una sucursal para reserva para la app de BOOKING SPORT
