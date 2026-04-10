@@ -53,8 +53,8 @@ router.post('/hold',              verificarTokenAuth, validateDTO(createHoldDto)
 router.post('/extend',            verificarTokenAuth, GlobalErrorHandler.asyncHandler(extendHold));
 router.post('/cancel-hold',       verificarTokenAuth, GlobalErrorHandler.asyncHandler(cancelHold));
 router.post('/expire-my-holds',   verificarTokenAuth, GlobalErrorHandler.asyncHandler(expireAllMyHolds));
-router.post('/delete-date-holds', ...protegerPermiso('booking.confirm'), GlobalErrorHandler.asyncHandler(deleteDateHolds));
-router.post('/copy-holds',        ...protegerPermiso('booking.confirm'), GlobalErrorHandler.asyncHandler(copyHolds));
+router.post('/delete-date-holds', verificarTokenAuth, GlobalErrorHandler.asyncHandler(deleteDateHolds));
+router.post('/copy-holds',        verificarTokenAuth, GlobalErrorHandler.asyncHandler(copyHolds));
 
 // ── Gestión de reservas (admin) ───────────────────────────────────────────────
 router.put('/:id/approve', ...protegerPermiso('booking.confirm'), GlobalErrorHandler.asyncHandler(approveBooking));
