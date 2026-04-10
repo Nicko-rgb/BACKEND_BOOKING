@@ -11,11 +11,9 @@ const router  = express.Router();
 
 const upload             = require('../../../shared/middlewares/uploadMiddleware');
 const { verificarTokenAuth } = require('../../../shared/middlewares/verificarTokenAuth');
-const { verificarRol }   = require('../../../shared/middlewares/verificarRol');
+const { verificarPermiso } = require('../../../shared/middlewares/verificarPermiso');
 const GlobalErrorHandler = require('../../../shared/handlers/GlobalErrorHandler');
 const MediaController    = require('../controllers/MediaController');
-
-const MEDIA_ROLES = ['system', 'super_admin', 'administrador'];
 
 /**
  * @route  POST /api/media/upload/:entityType/:entityId
@@ -26,7 +24,7 @@ const MEDIA_ROLES = ['system', 'super_admin', 'administrador'];
 router.post(
     '/upload/:entityType/:entityId',
     verificarTokenAuth,
-    verificarRol({ roles: MEDIA_ROLES }),
+    verificarPermiso('media.manage_facility'),
     upload.single('media'),
     GlobalErrorHandler.asyncHandler(MediaController.upload)
 );
@@ -40,7 +38,7 @@ router.post(
 router.get(
     '/:entityType/:entityId',
     verificarTokenAuth,
-    verificarRol({ roles: MEDIA_ROLES }),
+    verificarPermiso('media.manage_facility'),
     GlobalErrorHandler.asyncHandler(MediaController.listByEntity)
 );
 
@@ -52,7 +50,7 @@ router.get(
 router.delete(
     '/:mediaId',
     verificarTokenAuth,
-    verificarRol({ roles: MEDIA_ROLES }),
+    verificarPermiso('media.manage_facility'),
     GlobalErrorHandler.asyncHandler(MediaController.remove)
 );
 
@@ -65,7 +63,7 @@ router.delete(
 router.patch(
     '/:mediaId/primary',
     verificarTokenAuth,
-    verificarRol({ roles: MEDIA_ROLES }),
+    verificarPermiso('media.manage_facility'),
     GlobalErrorHandler.asyncHandler(MediaController.setPrimary)
 );
 

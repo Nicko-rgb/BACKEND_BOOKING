@@ -35,14 +35,14 @@ const registerCompany = async (companyData, userId, files = {}) => {
         const parentCompany = await CompanyRepository.findById(parentCompanyId);
         if (!parentCompany) throw new BadRequestError('La compañía padre especificada no existe');
         if (parentCompany.parent_company_id !== null) throw new BadRequestError('La compañía padre debe ser una empresa principal');
-        
+
         tenantId = parentCompany.tenant_id;
         companyData.country_id = companyData.country_id || parentCompany.country_id;
     } else {
         // Es una EMPRESA PRINCIPAL
         const existingParentCompany = await CompanyRepository.existsParentByDocument(companyData.document);
         if (existingParentCompany) throw new ConflictError('Ya existe una empresa con este documento');
-        
+
         tenantId = randomUUID();
     }
 
@@ -74,26 +74,39 @@ const registerCompany = async (companyData, userId, files = {}) => {
 };
 
 // Servicio para obtener todas las compañias principales
-// userContext: { roles, tenant_id, isSystem } — si no es system, fuerza tenant_id del usuario
+/**
+ * Lista empresas principales con filtros y paginación, respetando el scope del usuario.
+ *
+ * Estrategia de aislamiento para no-system:
+ *   - Filtra por `company_ids` del JWT (lista exacta de empresas asignadas).
+ *   - Esto es correcto aunque el usuario tenga empresas en distintos tenants.
+ *   - Si no tiene ninguna asignada, devuelve lista vacía.
+ *
+ * system ve todas sin restricción (con cache).
+ */
 const getAllCompanies = async (query = {}, userContext = null) => {
     const { page = 1, limit = 10, search, status = 'ACTIVE', is_enabled = 'A', country_id } = query;
 
-    // Aislamiento por tenant: no-system siempre ve solo sus empresas
-    const effectiveTenantId = (userContext && !userContext.isSystem)
-        ? userContext.tenant_id
-        : (query.tenant_id || null);
+    // Sin restricción: system por rol, o usuario con company.manage_all / system.full_access
+    const isUnrestricted = !userContext || userContext.isSystem || userContext.isManageAll;
+
+    // Filtro de scope: company_ids del JWT para usuarios restringidos
+    // Garantiza que el usuario solo vea sus empresas aunque tengan distintos tenants
+    const scopeFilter = !isUnrestricted && userContext.company_ids?.length > 0
+        ? { company_ids: userContext.company_ids }
+        : {};
 
     const filters = {
         status,
         is_enabled,
-        ...(search        && { search }),
-        ...(country_id    && { country_id }),
-        ...(effectiveTenantId && { tenant_id: effectiveTenantId })
+        ...(search && { search }),
+        ...(country_id && { country_id }),
+        ...scopeFilter,
     };
     const pagination = { page, limit };
 
-    // No cachear para no-system (sus datos son específicos y cambian menos)
-    if (userContext && !userContext.isSystem) {
+    // No cachear para usuarios con scope restringido — sus datos son personales y pueden variar
+    if (!isUnrestricted) {
         const result = await CompanyRepository.findParents(filters, pagination);
         return { companies: result.companies, pagination: result.pagination };
     }
@@ -222,11 +235,11 @@ const getPublicSucursales = async ({
     page = 1,
     limit = 12
 } = {}) => {
-    const userLat   = lat != null ? parseFloat(lat) : null;
-    const userLng   = lng != null ? parseFloat(lng) : null;
+    const userLat = lat != null ? parseFloat(lat) : null;
+    const userLng = lng != null ? parseFloat(lng) : null;
     const hasCoords = userLat != null && userLng != null;
-    const pageNum   = Math.max(1, parseInt(page, 10));
-    const limitNum  = Math.min(48, Math.max(1, parseInt(limit, 10)));
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.min(48, Math.max(1, parseInt(limit, 10)));
 
     // 1. Resolver iso_country → country_id ─────────────────────────────────────
     let country_id = null;
@@ -296,8 +309,8 @@ const getPublicSucursales = async ({
         items,
         meta: {
             total,
-            page:       pageNum,
-            limit:      limitNum,
+            page: pageNum,
+            limit: limitNum,
             totalPages: Math.ceil(total / limitNum)
         }
     };
@@ -334,7 +347,7 @@ const mapSucursal = (sucursal, userLat, userLng) => {
 
     return {
         ...data,
-        _distance_km:   distance_km,
+        _distance_km: distance_km,
         processed_data: { sports, primary_photo: primaryPhoto, features }
     };
 };
@@ -356,12 +369,15 @@ const getMainCompanyForAdmin = async (companyId, requestingUser) => {
     const company = await CompanyRepository.getCompanyDetails(companyId);
     if (!company) throw new NotFoundError('No tienes acceso a estos datos');
 
-    // system tiene acceso total ──────────────────────────────────────────────
-    const isSystem = requestingUser?.permissions?.includes('system.full_access');
-    if (isSystem) return company;
+    // Acceso total: system.full_access O company.manage_all ─────────────────
+    const canAccessAll = requestingUser?.permissions?.includes('system.full_access')
+                      || requestingUser?.permissions?.includes('company.manage_all');
+    if (canAccessAll) return company;
 
-    // El resto de roles solo puede ver registros de su propio tenant ─────────
-    if (company.tenant_id !== requestingUser?.tenant_id) {
+    // Verificar por company_ids del JWT — soporta super_admin con empresas
+    // en múltiples tenants (el tenant_id del JWT solo refleja el primero)
+    const allowedIds = (requestingUser?.company_ids || []).map(Number);
+    if (!allowedIds.includes(Number(companyId))) {
         throw new ForbiddenError('No tienes acceso a estos datos');
     }
 
@@ -384,12 +400,14 @@ const getSubsidiaryForAdmin = async (subsidiaryId, requestingUser) => {
         throw new ForbiddenError('No tienes acceso a estos datos');
     }
 
-    // system tiene acceso total ──────────────────────────────────────────────
-    const isSystem = requestingUser?.permissions?.includes('system.full_access');
-    if (isSystem) return company;
+    // Acceso total: system.full_access O company.manage_all ─────────────────
+    const canAccessAll = requestingUser?.permissions?.includes('system.full_access')
+                      || requestingUser?.permissions?.includes('company.manage_all');
+    if (canAccessAll) return company;
 
-    // El resto de roles sólo puede ver su propio tenant ─────────────────────
-    if (company.tenant_id !== requestingUser?.tenant_id) {
+    // Verificar por company_ids del JWT — soporta usuarios en múltiples tenants
+    const allowedIds = (requestingUser?.company_ids || []).map(Number);
+    if (!allowedIds.includes(Number(subsidiaryId))) {
         throw new ForbiddenError('No tienes acceso a estos datos');
     }
 

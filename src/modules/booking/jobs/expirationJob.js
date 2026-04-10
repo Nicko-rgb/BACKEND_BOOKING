@@ -1,17 +1,30 @@
 const BookingRepository = require('../repository/BookingRepository');
 const { getIO } = require('../../../config/socketConfig');
+const redisClient = require('../../../config/redisConfig');
+const logger = require('../../../config/logger');
 
 let dynamicTimeout = null;
 
+// Clave y TTL del lock distribuido — el TTL es ligeramente menor que el intervalo (15s)
+// para garantizar que expire antes del siguiente ciclo y no quede huérfano.
+const LOCK_KEY = 'lock:expiration_job';
+const LOCK_TTL_MS = 14000;
+
 /**
  * Emite 'booking:released' para cada hold expirado y los elimina de la BD.
+ * Usa un lock distribuido en Redis para que, en entornos con múltiples instancias,
+ * solo un servidor ejecute el job por ciclo.
  */
 const processExpiredHolds = async () => {
+    // Intentar adquirir el lock — si falla (otra instancia lo tiene) salir sin procesar
+    const lockAcquired = await redisClient.setNX(LOCK_KEY, LOCK_TTL_MS);
+    if (!lockAcquired) return;
+
     try {
         const expiredHolds = await BookingRepository.findAndDeleteExpiredHolds();
 
         if (expiredHolds.length > 0) {
-            console.log(`⏰ ${expiredHolds.length} bloqueo(s) expirado(s) eliminado(s).`);
+            logger.info(`Expiration job: ${expiredHolds.length} hold(s) expirado(s) eliminados`);
             const io = getIO();
 
             expiredHolds.forEach(hold => {
@@ -27,8 +40,9 @@ const processExpiredHolds = async () => {
             });
         }
     } catch (error) {
-        console.error('❌ Error en Job de expiración:', error);
+        logger.error('Error en Job de expiración', { error: error.message });
     }
+    // El lock expira automáticamente con el TTL — no se necesita liberación explícita
 };
 
 /**
@@ -57,7 +71,7 @@ const scheduleNextExpiration = async () => {
             }, delay);
         }
     } catch (error) {
-        console.error('❌ Error al programar siguiente expiración:', error);
+        logger.error('Error al programar siguiente expiración', { error: error.message });
     }
 };
 
@@ -67,7 +81,7 @@ const scheduleNextExpiration = async () => {
  * - Timer dinámico que dispara exactamente cuando vence el próximo hold
  */
 const startExpirationJob = () => {
-    console.log('🚀 Iniciando Job de expiración de reservas...');
+    logger.info('Iniciando Job de expiración de reservas...');
 
     // Intervalo de seguridad: captura cualquier hold que haya escapado al timer dinámico
     setInterval(async () => {

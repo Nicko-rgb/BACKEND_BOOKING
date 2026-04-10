@@ -6,16 +6,15 @@
  */
 const User = require('./User');
 const Person = require('./Person');
-const UserRole = require('./UserRole');
 const UserFavorite = require('./UserFavorite');
 const UserCompany = require('./UserCompany');
 const UserPermission = require('./UserPermission');
 
-// Crear objeto con todos los modelos del módulo
+// Crear objeto con todos los modelos del módulo ──────────────────────────────
+// UserRole, Role y RolePermission fueron eliminados — el sistema usa permisos directos
 const models = {
     User,
     Person,
-    UserRole,
     UserFavorite,
     UserCompany,
     UserPermission,
@@ -28,7 +27,7 @@ module.exports = models;
 const { Media } = require('../../media/models');
 const { Booking } = require('../../booking/models');
 const { Rating, Company } = require('../../facility/models');
-const { Role, Country, RolePermission, Permission } = require('../../catalogs/models');
+const { Country, Permission } = require('../../catalogs/models');
 
 // Objeto con todos los modelos necesarios para las asociaciones
 const allModels = {
@@ -37,10 +36,8 @@ const allModels = {
     Booking,
     Rating,
     Company,
-    Role,
     Country,
     UserCompany,
-    RolePermission,
     Permission,
 };
 

@@ -14,7 +14,6 @@ dist-ssr
 
 .env
 flujo.drawio
-docs
 
 # Editor directories and files
 .vscode/*

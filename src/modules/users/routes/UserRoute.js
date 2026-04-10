@@ -4,6 +4,7 @@ const router = express.Router();
 const { createUserDto, createAdminUserDto, updateStaffUserDto, staffOverviewQueryDto } = require('../dto/UserDto');
 const { validateDTO, validateQuery } = require('../../../shared/middlewares/validateDTO');
 const { protegerPermiso, protegerPermisoConScope } = require('../../../shared/middlewares/proteger');
+const { verificarTokenAuth } = require('../../../shared/middlewares/verificarTokenAuth');
 const GlobalErrorHandler = require('../../../shared/handlers/GlobalErrorHandler');
 const {
     createUser,
@@ -15,7 +16,8 @@ const {
     getUsersByCompany,
     getTenantStaff,
     getStaffOverview,
-    updateStaffUser
+    updateStaffUser,
+    logout
 } = require('../controllers/UserController');
 
 /**
@@ -45,6 +47,13 @@ router.post('/admin-login', GlobalErrorHandler.asyncHandler(loginAdmin));
  * @access Public — solo clientes
  */
 router.post('/social-login', GlobalErrorHandler.asyncHandler(socialLogin));
+
+/**
+ * @route POST /api/users/logout
+ * @desc Cierra sesión invalidando el token actual en Redis (blacklist)
+ * @access Privado — cualquier usuario autenticado
+ */
+router.post('/logout', verificarTokenAuth, GlobalErrorHandler.asyncHandler(logout));
 
 /**
  * @route GET /api/users/get-all-users

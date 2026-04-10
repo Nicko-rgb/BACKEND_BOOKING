@@ -68,9 +68,10 @@ Todas las respuestas siguen este formato:
 // Respuesta exitosa
 {
     "success": true,
-    "data": { ... },
+    "data": [ ... ],
     "message": "Operación exitosa",
-    "timestamp": "2024-01-15T10:30:00Z"
+    "timestamp": "2024-01-15T10:30:00Z",
+    "extras...."
 }
 
 // Respuesta de error

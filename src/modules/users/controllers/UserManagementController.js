@@ -1,3 +1,7 @@
+/**
+ * UserManagementController — Controladores de gestión de usuarios y permisos.
+ * getRoles y updateRolePermissions fueron eliminados junto con la tabla dsg_bss_roles.
+ */
 const UserManagementHandler = require('../handlers/UserManagementHandler');
 
 // GET /api/users/permissions
@@ -5,16 +9,19 @@ const getPermissions = async (req, res) => {
     await UserManagementHandler.getPermissions(res);
 };
 
-// GET /api/users/roles
-const getRoles = async (req, res) => {
-    await UserManagementHandler.getRoles(res);
+// GET /api/users/permissions/:key/users
+const getUsersByPermission = async (req, res) => {
+    await UserManagementHandler.getUsersByPermission(res, req.params.key);
 };
 
-// PUT /api/users/roles/:roleId/permissions
-const updateRolePermissions = async (req, res) => {
-    const { roleId } = req.params;
-    const { permission_keys } = req.validatedData;
-    await UserManagementHandler.updateRolePermissions(res, Number(roleId), permission_keys, req.user);
+// POST /api/users/permissions
+const createPermission = async (req, res) => {
+    await UserManagementHandler.createPermission(res, req.validatedData);
+};
+
+// PUT /api/users/permissions/:key
+const updatePermission = async (req, res) => {
+    await UserManagementHandler.updatePermission(res, req.params.key, req.validatedData);
 };
 
 // GET /api/users
@@ -48,12 +55,20 @@ const getMenu = async (req, res) => {
     await UserManagementHandler.getMenu(res, userPermissions);
 };
 
+// POST /api/users/assign-owner
+const assignOwner = async (req, res) => {
+    const { user_id, company_id } = req.validatedData;
+    await UserManagementHandler.assignOwner(res, Number(user_id), Number(company_id), req.user);
+};
+
 module.exports = {
     getPermissions,
-    getRoles,
-    updateRolePermissions,
+    getUsersByPermission,
+    createPermission,
+    updatePermission,
     getUsers,
     getUserDetail,
     setUserDirectPermissions,
     getMenu,
+    assignOwner,
 };

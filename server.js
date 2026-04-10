@@ -1,42 +1,58 @@
 /**
  * Servidor principal del sistema de reservas deportivas
  */
+
+// Sentry debe inicializarse antes que todo lo demás para capturar errores desde el arranque
+const Sentry = require('@sentry/node');
+if (process.env.SENTRY_DSN) {
+    Sentry.init({
+        dsn: process.env.SENTRY_DSN,
+        environment: process.env.NODE_ENV || 'development',
+        // Captura el 100% de transacciones en desarrollo, ajustar en producción
+        tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
+    });
+}
+
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const chalk = require('chalk');
 const path = require('path');
 const sequelize = require('./src/config/db');
+const logger = require('./src/config/logger');
 const { runAllSeeds } = require('./src/seeds/indexSeed');
 const GlobalErrorHandler = require('./src/shared/handlers/GlobalErrorHandler');
-const userRoutes           = require('./src/modules/users/routes/UserRoute');
+const userRoutes = require('./src/modules/users/routes/UserRoute');
 const userManagementRoutes = require('./src/modules/users/routes/userManagementRoutes');
-const companyRoutes        = require('./src/modules/facility/routes/companyRoutes');
-const configRoutes         = require('./src/modules/facility/routes/configRoutes');
+const companyRoutes = require('./src/modules/facility/routes/companyRoutes');
+const configRoutes = require('./src/modules/facility/routes/configRoutes');
 const paymentFacilityRoutes = require('./src/modules/facility/routes/paymentRoutes');
-const spaceRoutes          = require('./src/modules/facility/routes/spaceRoutes');
-const indexCatalogsRoute   = require('./src/modules/catalogs/routes/indexCatalogsRoute');
-const bookingRoutes        = require('./src/modules/booking/routes/bookingRoutes');
+const spaceRoutes = require('./src/modules/facility/routes/spaceRoutes');
+const indexCatalogsRoute = require('./src/modules/catalogs/routes/indexCatalogsRoute');
+const bookingRoutes = require('./src/modules/booking/routes/bookingRoutes');
 const paymentBookingRoutes = require('./src/modules/booking/routes/paymentBookingRoutes');
-const mediaRoutes          = require('./src/modules/media/routes/mediaRoutes');
-const inicioRoutes      = require('./src/modules/reports/routes/inicioRoutes');
+const mediaRoutes = require('./src/modules/media/routes/mediaRoutes');
+const inicioRoutes = require('./src/modules/reports/routes/inicioRoutes');
 const redisClient = require('./src/config/redisConfig');
 const { startExpirationJob } = require('./src/modules/booking/jobs/expirationJob');
 const { initSocket } = require('./src/config/socketConfig');
 const http = require('http');
+const crypto = require('crypto');
 
 require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
 
-// Inicializar Socket.IO
-initSocket(server);
-
-// Configuración de CORS para permitir requests desde múltiples frontends
 const corsOrigins = process.env.CORS_ORIGIN || 'http://localhost:3000';
 const origins = corsOrigins.split(',').map(origin => origin.trim());
 const isDev = process.env.NODE_ENV === 'development';
 
+// Seguridad — headers HTTP protectores (XSS, clickjacking, MIME sniffing, etc.)
+app.use(helmet());
+
+// CORS — múltiples frontends permitidos vía variable de entorno
 app.use(cors({
     origin: isDev ? '*' : origins,
     credentials: true,
@@ -44,12 +60,61 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+/**
+ * Rate limiting — límite general para toda la API.
+ * 200 requests por IP cada 15 minutos.
+ */
+const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Demasiadas solicitudes desde esta IP, intenta en 15 minutos.' }
+});
+
+/**
+ * Rate limiting estricto para endpoints de autenticación.
+ * 10 intentos por IP cada 15 minutos — protege contra fuerza bruta.
+ */
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Auth, Demasiados intentos de autenticación, intenta en 15 minutos.' }
+});
+
+app.use('/api/', generalLimiter);
+app.use('/api/users/login', authLimiter);
+app.use('/api/users/register', authLimiter);
+
+/**
+ * Request ID — asigna un ID único a cada request para correlacionar logs.
+ * Disponible en req.id y en el header de respuesta X-Request-Id.
+ */
+app.use((req, res, next) => {
+    req.id = crypto.randomUUID();
+    res.setHeader('X-Request-Id', req.id);
+    next();
+});
+
+// Log de cada request entrante ────────────────────────────────────────────────
+app.use((req, _res, next) => {
+    logger.info(`${req.method} ${req.path}`, { requestId: req.id, ip: req.ip });
+    next();
+});
+
 // Middleware para parsear JSON
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Servir archivos estáticos (uploads)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Cross-Origin-Resource-Policy: cross-origin — permite que frontends en otros puertos
+// carguen imágenes directamente (necesario cuando helmet() setea same-origin por defecto)
+app.use('/uploads', (_req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+}, express.static(path.join(__dirname, 'uploads')));
 
 // ============================================
 // RUTAS DE LA API
@@ -92,12 +157,16 @@ app.use('/api/reservations', bookingRoutes);         // Alias de compatibilidad 
 // ── Multimedia ────────────────────────────────────────────────────────────────
 app.use('/api/media', mediaRoutes);
 
-// ── Dashboard / Página de inicio ─────────────────────────────────────────────
+// ── Reportes / Página de inicio ─────────────────────────────────────────────
 app.use('/api/reports', inicioRoutes);
 
 
 // Manejo de 404 y errores globales
 app.use(GlobalErrorHandler.notFound);
+// Sentry captura errores antes de que el GlobalErrorHandler responda al cliente
+if (process.env.SENTRY_DSN) {
+    app.use(Sentry.expressErrorHandler());
+}
 app.use(GlobalErrorHandler.handleError);
 
 // ============================================
@@ -109,27 +178,32 @@ app.use(GlobalErrorHandler.handleError);
  */
 async function inicializarBaseDatos() {
     try {
-        // Sincronizar modelos con la base de datos
         const forceSync = process.env.DB_FORCE_SYNC === 'true';
         const alterSync = process.env.DB_ALTER_SYNC === 'true';
-        
-        console.log(chalk.yellow('🔄 Sincronizando modelos con la base de datos...'));
+
+        // Guard: DB_FORCE_SYNC=true en producción destruye todas las tablas.
+        // Detener el arranque para evitar pérdida catastrófica de datos.
+        if (process.env.NODE_ENV === 'production' && forceSync) {
+            throw new Error('DB_FORCE_SYNC=true está PROHIBIDO en producción — puede eliminar todas las tablas. Usa migraciones.');
+        }
+
+        logger.info('Sincronizando modelos con la base de datos...');
         await sequelize.sync({ force: forceSync, alter: alterSync });
         
-        console.log(chalk.bgGreen('✅ Modelos sincronizados correctamente'));
-        
+        logger.info('Modelos sincronizados correctamente');
+
         // Poblar datos iniciales si es necesario
         if (process.env.SEED_INITIAL_DATA === 'true' || forceSync) {
-            console.log(chalk.yellow('🌱 Poblando datos iniciales...'));
+            logger.info('Poblando datos iniciales...');
             await runAllSeeds();
         }
 
         // Iniciar Job de expiración de reservas
         startExpirationJob();
-        
+
         return true;
     } catch (error) {
-        console.error(chalk.red('❌ Error al inicializar la base de datos:'), error);
+        logger.error('Error al inicializar la base de datos', { error: error.message });
         throw error;
     }
 }
@@ -144,6 +218,9 @@ async function iniciarServidor() {
         
         // Conectar a Redis
         await redisClient.connect();
+
+        // Inicializar Socket.IO (async para poder conectar el Redis adapter)
+        await initSocket(server);
         
         // Configurar puerto y host
         const PORT = process.env.PORT || 3001;
@@ -176,29 +253,49 @@ async function iniciarServidor() {
             }
             
             console.log(chalk.cyan(`🏥 Health check: http://localhost:${PORT}/health`));
-            console.log(chalk.yellow(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}`));
+            console.log(chalk.yellow(`🌍 Entorno: ${process.env.NODE_ENV }`));
             console.log(chalk.green('✅ ¡Sistema listo para recibir requests!\n'));
         });
         
-        // Manejo graceful de cierre del servidor
-        process.on('SIGTERM', () => {
-            console.log(chalk.yellow('\n⚠️  Recibida señal SIGTERM, cerrando servidor...'));
-            server.close(() => {
-                console.log(chalk.green('✅ Servidor cerrado correctamente'));
-                process.exit(0);
+        /**
+         * Graceful shutdown — cierra conexiones en orden correcto:
+         * 1. Deja de aceptar nuevas conexiones (server.close)
+         * 2. Espera que las queries en vuelo terminen (pool de DB)
+         * 3. Cierra el pool de PostgreSQL
+         * 4. Cierra la conexión de Redis
+         * Garantiza que no se pierdan datos ni queden transacciones abiertas.
+         */
+        const gracefulShutdown = async (signal) => {
+            logger.info(`Señal ${signal} recibida — iniciando graceful shutdown...`);
+
+            server.close(async () => {
+                try {
+                    await sequelize.close();
+                    logger.info('Pool de base de datos cerrado');
+
+                    await redisClient.disconnect();
+                    logger.info('Conexión Redis cerrada');
+
+                    logger.info('Servidor cerrado correctamente');
+                    process.exit(0);
+                } catch (err) {
+                    logger.error('Error durante el graceful shutdown', { error: err.message });
+                    process.exit(1);
+                }
             });
-        });
-        
-        process.on('SIGINT', () => {
-            console.log(chalk.yellow('\n⚠️  Recibida señal SIGINT (Ctrl+C), cerrando servidor...'));
-            server.close(() => {
-                console.log(chalk.green('✅ Servidor cerrado correctamente'));
-                process.exit(0);
-            });
-        });
-        
+
+            // Forzar cierre si tarda más de 15 segundos
+            setTimeout(() => {
+                logger.error('Graceful shutdown superó el tiempo límite — forzando cierre');
+                process.exit(1);
+            }, 15000);
+        };
+
+        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+        process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
+
     } catch (error) {
-        console.error(chalk.red('🔴 Error crítico al iniciar el servidor:'), error);
+        logger.error('Error crítico al iniciar el servidor', { error: error.message });
         process.exit(1);
     }
 }

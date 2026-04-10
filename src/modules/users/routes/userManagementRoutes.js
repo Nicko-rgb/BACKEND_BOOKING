@@ -1,66 +1,86 @@
 /**
  * userManagementRoutes.js
- * Rutas de gestión de usuarios, roles, permisos y menú dinámico.
- * Absorbidas del módulo admin — ahora disponibles en /api/users/*
+ * Rutas de gestión de usuarios, permisos y menú dinámico.
+ *
+ * Nota: las rutas de roles (GET /roles, PUT /roles/:id/permissions) fueron eliminadas
+ * junto con la tabla dsg_bss_roles en la migración a permisos directos por usuario.
  */
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
 
 const GlobalErrorHandler = require('../../../shared/handlers/GlobalErrorHandler');
-const { proteger, protegerPermiso } = require('../../../shared/middlewares/proteger');
+const { protegerPermiso } = require('../../../shared/middlewares/proteger');
+const { verificarTokenAuth } = require('../../../shared/middlewares/verificarTokenAuth');
 const { validateDTO, validateQuery } = require('../../../shared/middlewares/validateDTO');
 const {
-    updateRolePermissionsDto,
+    createPermissionDto,
+    updatePermissionDto,
     setUserPermissionsDto,
     getUsersQueryDto,
+    assignOwnerDto,
 } = require('../dto/UserManagementDto');
 
 const {
     getPermissions,
-    getRoles,
-    updateRolePermissions,
+    getUsersByPermission,
+    createPermission,
+    updatePermission,
     getUsers,
     getUserDetail,
     setUserDirectPermissions,
     getMenu,
+    assignOwner,
 } = require('../controllers/UserManagementController');
 
-// ── Menú dinámico ─────────────────────────────────────────────────────────────
+// ── Menú dinámico — cualquier usuario admin autenticado puede acceder ─────────
 router.get('/menu',
-    ...proteger(['system', 'super_admin', 'administrador', 'empleado']),
+    verificarTokenAuth,
     GlobalErrorHandler.asyncHandler(getMenu)
 );
 
 // ── Catálogo de permisos ──────────────────────────────────────────────────────
 router.get('/permissions',
-    ...proteger(['system', 'super_admin', 'administrador', 'empleado']),
+    ...protegerPermiso('role.manage'),
     GlobalErrorHandler.asyncHandler(getPermissions)
 );
 
-// ── Roles ─────────────────────────────────────────────────────────────────────
-router.get('/roles',
-    ...proteger(['system', 'super_admin', 'administrador', 'empleado']),
-    GlobalErrorHandler.asyncHandler(getRoles)
+router.get('/permissions/:key/users',
+    ...protegerPermiso('role.manage'),
+    GlobalErrorHandler.asyncHandler(getUsersByPermission)
 );
 
-router.put('/roles/:roleId/permissions',
+router.post('/permissions',
     ...protegerPermiso('role.manage'),
-    validateDTO(updateRolePermissionsDto),
-    GlobalErrorHandler.asyncHandler(updateRolePermissions)
+    validateDTO(createPermissionDto),
+    GlobalErrorHandler.asyncHandler(createPermission)
+);
+
+router.put('/permissions/:key',
+    ...protegerPermiso('role.manage'),
+    validateDTO(updatePermissionDto),
+    GlobalErrorHandler.asyncHandler(updatePermission)
+);
+
+// ── Asignación de propietario ─────────────────────────────────────────────────
+// Debe ir ANTES de /:userId para que no sea capturada por esa ruta genérica
+router.post('/assign-owner',
+    ...protegerPermiso('company.manage_own'),
+    validateDTO(assignOwnerDto),
+    GlobalErrorHandler.asyncHandler(assignOwner)
 );
 
 // ── Usuarios (lista + detalle) ────────────────────────────────────────────────
-// NOTA: estas rutas deben registrarse DESPUÉS de UserRoute.js en app.js
+// NOTA: estas rutas deben registrarse DESPUÉS de UserRoute.js en server.js
 // para que GET /staff/overview, /company/:id, etc. no sean capturadas por /:userId
 
 router.get('/',
-    ...proteger(['system', 'super_admin', 'administrador', 'empleado']),
+    ...protegerPermiso('employee.manage_own'),
     validateQuery(getUsersQueryDto),
     GlobalErrorHandler.asyncHandler(getUsers)
 );
 
 router.get('/:userId',
-    ...proteger(['system', 'super_admin', 'administrador', 'empleado']),
+    ...protegerPermiso('employee.manage_own'),
     GlobalErrorHandler.asyncHandler(getUserDetail)
 );
 

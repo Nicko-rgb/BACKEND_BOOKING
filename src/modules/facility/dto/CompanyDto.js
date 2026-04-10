@@ -590,23 +590,24 @@ class CompanyDto {
 
             // Propietario (super_admin) de la empresa
             owner: (() => {
-                const assignment = company.userAssignments?.find(a => a.role?.role_name === 'super_admin');
+                // role es varchar clasificador (no FK) — filtrar directamente ──
+                const assignment = company.userAssignments?.find(a => a.role === 'super_admin');
                 if (!assignment) return null;
                 const u = assignment.user || {};
                 const p = u.person || {};
                 return {
-                    user_id:         u.user_id,
-                    first_name:      u.first_name,
-                    last_name:       u.last_name,
-                    email:           u.email,
-                    is_enabled:      u.is_enabled,
-                    phone:           p.phone           || null,
-                    document_type:   p.document_type   || null,
+                    user_id: u.user_id,
+                    first_name: u.first_name,
+                    last_name: u.last_name,
+                    email: u.email,
+                    is_enabled: u.is_enabled,
+                    phone: p.phone || null,
+                    document_type: p.document_type || null,
                     document_number: p.document_number || null,
-                    address:         p.address         || null,
-                    date_birth:      p.date_birth       || null,
-                    country_name:    p.country?.country || null,
-                    country_iso:     p.country?.iso_country || null,
+                    address: p.address || null,
+                    date_birth: p.date_birth || null,
+                    country_name: p.country?.country || null,
+                    country_iso: p.country?.iso_country || null,
                 };
             })(),
 
@@ -672,21 +673,21 @@ class CompanyDto {
                 : null;
 
             return {
-                sucursal_id:     data.company_id,
-                name_sucursal:   data.name,
-                address:         data.address,
-                sports:          processed_data?.sports || [],
-                primary_photo:   processed_data?.primary_photo,
-                price:           data.min_price || 0,
+                sucursal_id: data.company_id,
+                name_sucursal: data.name,
+                address: data.address,
+                sports: processed_data?.sports || [],
+                primary_photo: processed_data?.primary_photo,
+                price: data.min_price || 0,
                 // Moneda del país donde opera la sucursal — null si no viene el include
                 currency_simbol: data.country?.currency_simbol ?? null,
-                iso_currency:    data.country?.iso_currency    ?? null,
-                opening_time:    data.opening_time,
-                closing_time:    data.closing_time,
-                features:        processed_data?.features || [],
+                iso_currency: data.country?.iso_currency ?? null,
+                opening_time: data.opening_time,
+                closing_time: data.closing_time,
+                features: processed_data?.features || [],
                 // Coordenadas (útiles para mapas en el frontend) ─────────────
-                latitude:        data.latitude,
-                longitude:       data.longitude,
+                latitude: data.latitude,
+                longitude: data.longitude,
                 // Distancia calculada por Haversine (null si no hay coords) ──
                 distance_km
             };
@@ -701,30 +702,30 @@ class CompanyDto {
         const data = sucursal.get ? sucursal.get({ plain: true }) : sucursal;
 
         return {
-            sucursal_id:     data.company_id,
-            name:            data.name,
-            address:         data.address,
-            phone:           data.phone_cell || data.phone,
-            description:     data.description,
-            latitude:        data.latitude,
-            longitude:       data.longitude,
-            min_price:       data.min_price,
+            sucursal_id: data.company_id,
+            name: data.name,
+            address: data.address,
+            phone: data.phone_cell || data.phone,
+            description: data.description,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            min_price: data.min_price,
             // Moneda del país donde opera la sucursal ────────────────────────
             currency_simbol: data.country?.currency_simbol ?? null,
-            iso_currency:    data.country?.iso_currency    ?? null,
-            opening_time:    data.opening_time,
-            closing_time:    data.closing_time,
+            iso_currency: data.country?.iso_currency ?? null,
+            opening_time: data.opening_time,
+            closing_time: data.closing_time,
             features: data.features ? (typeof data.features === 'string' ? data.features.split(',').map(f => f.trim()).filter(Boolean) : data.features) : [],
             primary_photo: data.media?.find(m => m.is_primary)?.file_url
                 || data.media?.[0]?.file_url
                 || null,
             // Redes sociales y contacto desde la configuración de la sucursal
-            social_whatsapp:  data.configuration?.social_whatsapp  || null,
+            social_whatsapp: data.configuration?.social_whatsapp || null,
             whatsapp_message: data.configuration?.whatsapp_message || null,
-            social_facebook:  data.configuration?.social_facebook  || null,
+            social_facebook: data.configuration?.social_facebook || null,
             social_instagram: data.configuration?.social_instagram || null,
-            social_tiktok:    data.configuration?.social_tiktok    || null,
-            social_youtube:   data.configuration?.social_youtube   || null,
+            social_tiktok: data.configuration?.social_tiktok || null,
+            social_youtube: data.configuration?.social_youtube || null,
             spaces: data.spaces ? data.spaces.map(space => ({
                 space_id: space.space_id,
                 name: space.name,
@@ -762,24 +763,24 @@ class CompanyDto {
  */
 const publicSucursalQueryDto = Joi.object({
     // Coordenadas GPS del usuario — activa ordenamiento Haversine ─────────────
-    lat:          Joi.number().min(-90).max(90),
-    lng:          Joi.number().min(-180).max(180),
-    radius_km:    Joi.number().positive().max(500).default(50),
+    lat: Joi.number().min(-90).max(90),
+    lng: Joi.number().min(-180).max(180),
+    radius_km: Joi.number().positive().max(500).default(50),
     // País del usuario — SIEMPRE enviado desde el frontend ────────────────────
-    iso_country:  Joi.string().min(2).max(3).uppercase(),
+    iso_country: Joi.string().min(2).max(3).uppercase(),
     // Fallback geográfico cuando no hay GPS (nivel 1=dept, 2=prov, 3=dist) ────
-    ubigeo_name:  Joi.string().max(100),
+    ubigeo_name: Joi.string().max(100),
     ubigeo_level: Joi.number().integer().valid(1, 2, 3),
     // Filtros de contenido ─────────────────────────────────────────────────────
-    search:       Joi.string().max(100).allow('').default(''),
-    sport:        Joi.string().max(50).allow(''),
-    open_now:     Joi.boolean(),
-    parking:      Joi.boolean(),
+    search: Joi.string().max(100).allow('').default(''),
+    sport: Joi.string().max(50).allow(''),
+    open_now: Joi.boolean(),
+    parking: Joi.boolean(),
     // Ordenamiento ────────────────────────────────────────────────────────────
-    sort_by:      Joi.string().valid('distance', 'price_asc', 'price_desc', 'name').default('distance'),
+    sort_by: Joi.string().valid('distance', 'price_asc', 'price_desc', 'name').default('distance'),
     // Paginación ──────────────────────────────────────────────────────────────
-    page:         Joi.number().integer().min(1).default(1),
-    limit:        Joi.number().integer().min(1).max(48).default(12),
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(48).default(12),
 });
 
 module.exports = {

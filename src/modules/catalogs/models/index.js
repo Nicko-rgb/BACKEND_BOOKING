@@ -12,13 +12,12 @@ const Ubigeo = require('./Ubigeo'); // Modelo geográfico unificado y autorrefer
 const SportType = require('./SportType');
 const SurfaceType = require('./SurfaceType');
 const SportCategory = require('./SportCategory');
-const Role = require('./Role');
 const PaymentType = require('./PaymentType');
 const Permission = require('./Permission');
-const RolePermission = require('./RolePermission');
 const MenuItem = require('./MenuItem');
 
 // Crear objeto con todos los modelos del módulo ────────────────────────────
+// Role y RolePermission fueron eliminados — el sistema usa permisos directos por usuario
 const models = {
     Country,
     Department,
@@ -28,10 +27,8 @@ const models = {
     SportType,
     SurfaceType,
     SportCategory,
-    Role,
     PaymentType,
     Permission,
-    RolePermission,
     MenuItem,
 };
 
@@ -41,7 +38,7 @@ module.exports = models;
 // Importar modelos de otros módulos para las asociaciones
 // Usamos require aquí para que se carguen después de exportar los modelos actuales
 const { Space, Company } = require('../../facility/models');
-const { User, UserRole, UserCompany, UserPermission } = require('../../users/models');
+const { User, UserCompany, UserPermission } = require('../../users/models');
 const { PaymentBooking } = require('../../booking/models');
 
 // Objeto con todos los modelos necesarios para las asociaciones
@@ -50,7 +47,6 @@ const allModels = {
     Space,
     Company,
     User,
-    UserRole,
     UserCompany,
     UserPermission,
     PaymentBooking,

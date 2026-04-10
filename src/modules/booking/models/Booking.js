@@ -143,6 +143,11 @@ const Booking = sequelize.define('Booking', {
             // Historial de reservas por usuario (panel del usuario)
             name: 'idx_booking_user',
             fields: ['user_id']
+        },
+        {
+            // Lookup pago → reservas asociadas (PaymentBooking join frecuente)
+            name: 'idx_booking_payment',
+            fields: ['payment_id']
         }
     ]
 });

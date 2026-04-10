@@ -6,7 +6,6 @@
  * (ej: 'booking.confirm', 'space.manage_own').
  *
  * Relaciones:
- * - Tiene muchos RolePermission (asignaciones a roles)
  * - Tiene muchos UserPermission (asignaciones directas a usuarios)
  */
 const { DataTypes } = require('sequelize');
@@ -69,12 +68,6 @@ const Permission = sequelize.define('Permission', {
 });
 
 Permission.associate = function (models) {
-    Permission.hasMany(models.RolePermission, {
-        foreignKey: 'permission_key',
-        sourceKey: 'key',
-        as: 'roleAssignments',
-    });
-
     Permission.hasMany(models.UserPermission, {
         foreignKey: 'permission_key',
         sourceKey: 'key',

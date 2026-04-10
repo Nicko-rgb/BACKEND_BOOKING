@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const CountryController = require('../controllers/CountryController');
-const RoleController = require('../controllers/RoleController');
 const CommonCatalogController = require('../controllers/CommonCatalogController');
 const PaymentTypeController = require('../controllers/PaymentTypeController');
 const GlobalErrorHandler = require('../../../shared/handlers/GlobalErrorHandler');
@@ -13,9 +12,6 @@ const GlobalErrorHandler = require('../../../shared/handlers/GlobalErrorHandler'
 
 // Países
 router.get('/countries', GlobalErrorHandler.asyncHandler(CountryController.getCountries));
-
-// Roles
-router.get('/roles', GlobalErrorHandler.asyncHandler(RoleController.getRoles));
 
 // Deportes
 router.get('/sport-types', GlobalErrorHandler.asyncHandler(CommonCatalogController.getSportTypes));

@@ -1,29 +1,17 @@
 /**
- * Helper proteger — combina los 3 middlewares de seguridad en un array limpio.
+ * proteger — helpers que combinan middlewares de seguridad en un array limpio.
  *
  * Uso en rutas:
- *   router.get('/details/:id', ...proteger(['system','super_admin'], true), handler);
- *
- * @param {string[]} roles      - Roles permitidos para el endpoint
- * @param {boolean}  conScope   - Si true, aplica verificarScope (req.params.id/companyId)
+ *   router.get('/ruta', ...protegerPermiso('booking.confirm'), handler);
+ *   router.get('/ruta/:id', ...protegerPermisoConScope('facility.manage_own'), handler);
  */
 const { verificarTokenAuth } = require('./verificarTokenAuth');
-const { verificarRol } = require('./verificarRol');
 const { verificarScopeDefault } = require('./verificarScope');
 const { verificarPermiso } = require('./verificarPermiso');
 
 /**
- * proteger(roles, conScope) — valida por ROL (legacy, sigue funcionando)
- *   router.get('/ruta', ...proteger(['system','super_admin'], true), handler);
- */
-const proteger = (roles = [], conScope = false) => [
-    verificarTokenAuth,
-    verificarRol({ roles }),
-    ...(conScope ? [verificarScopeDefault] : [])
-];
-
-/**
- * protegerPermiso(...perms) — valida por PERMISO (nuevo sistema)
+ * protegerPermiso(...perms) — valida token + permisos directos del usuario.
+ * system.full_access en el token bypasea cualquier chequeo de permiso.
  *   router.get('/ruta', ...protegerPermiso('booking.confirm'), handler);
  */
 const protegerPermiso = (...perms) => [
@@ -32,7 +20,9 @@ const protegerPermiso = (...perms) => [
 ];
 
 /**
- * protegerPermisoConScope(...perms) — valida por PERMISO + verifica scope del recurso
+ * protegerPermisoConScope(...perms) — valida token + permisos + scope del recurso.
+ * Útil cuando el recurso pertenece a una empresa y hay que verificar que el usuario
+ * tiene acceso a esa empresa (company_ids en el JWT).
  *   router.get('/ruta/:id', ...protegerPermisoConScope('facility.manage_own'), handler);
  */
 const protegerPermisoConScope = (...perms) => [
@@ -41,4 +31,4 @@ const protegerPermisoConScope = (...perms) => [
     verificarScopeDefault,
 ];
 
-module.exports = { proteger, protegerPermiso, protegerPermisoConScope };
+module.exports = { protegerPermiso, protegerPermisoConScope };

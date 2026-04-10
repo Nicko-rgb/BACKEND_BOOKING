@@ -23,7 +23,7 @@ const error = (req, res, code = 'ERROR', message = 'Error', details = null, stat
         success: false,
         error: {
             code,
-            message,
+            message: message + '-server',
             details
         },
         timestamp: new Date().toISOString(),

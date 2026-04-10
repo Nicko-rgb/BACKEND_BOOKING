@@ -4,9 +4,12 @@ const chalk = require('chalk');
 let io;
 
 /**
- * Inicializa Socket.IO con el servidor HTTP
+ * Inicializa Socket.IO con el servidor HTTP.
+ * Si Redis está habilitado, conecta el Redis adapter para soportar
+ * múltiples instancias del servidor (escalado horizontal).
+ * @param {import('http').Server} server
  */
-const initSocket = (server) => {
+const initSocket = async (server) => {
     io = new Server(server, {
         cors: {
             origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*',
@@ -14,6 +17,28 @@ const initSocket = (server) => {
             credentials: true
         }
     });
+
+    // Redis adapter — necesario para que los eventos de socket se propaguen
+    // entre múltiples instancias del servidor detrás de un load balancer.
+    // Si Redis no está disponible, Socket.IO funciona en modo single-server.
+    if (process.env.REDIS_ENABLED === 'true' && process.env.REDIS_URL) {
+        try {
+            const { createAdapter } = require('@socket.io/redis-adapter');
+            const { createClient } = require('redis');
+
+            // Pub/sub requiere conexiones dedicadas — no reutilizar el cliente principal
+            const pubClient = createClient({ url: process.env.REDIS_URL });
+            const subClient = pubClient.duplicate();
+
+            await Promise.all([pubClient.connect(), subClient.connect()]);
+            io.adapter(createAdapter(pubClient, subClient));
+
+            console.log(chalk.green('✅ Socket.IO conectado con Redis adapter (modo multi-servidor)'));
+        } catch (error) {
+            // No bloquear el arranque si Redis falla — degradar a single-server
+            console.warn(chalk.yellow(`⚠️  Redis adapter no disponible. Socket.IO en modo single-server. (${error.message})`));
+        }
+    }
 
     io.on('connection', (socket) => {
         console.log(`🔌 Usuario conectado: ${socket.id}`);

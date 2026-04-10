@@ -28,10 +28,15 @@ const verificarScope = (options = {}) => {
             return ApiResponse.error(req, res, 'AUTHENTICATION_REQUIRED', 'Autenticación requerida', null, 401);
         }
 
-        const { roles = [], company_ids = [] } = req.user;
+        // role es string en el JWT post-migración (ya no existe roles[] array)
+        const { role = '', company_ids = [], permissions = [] } = req.user;
 
-        // system tiene acceso total
-        if (allowSystem && roles.includes('system')) {
+        // Acceso total: system por rol, o cualquier usuario con system.full_access / company.manage_all
+        const hasFullAccess = role === 'system'
+            || permissions.includes('system.full_access')
+            || permissions.includes('company.manage_all');
+
+        if (allowSystem && hasFullAccess) {
             return next();
         }
 

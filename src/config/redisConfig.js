@@ -109,6 +109,24 @@ class RedisClient {
         }
     }
 
+    /**
+     * Intenta adquirir un lock distribuido (SET NX PX).
+     * Devuelve true si se adquirió, false si otro proceso ya lo tiene.
+     * Ante falla de Redis permite la ejecución (fail-open) para no bloquear el job.
+     * @param {string} key - Clave del lock
+     * @param {number} ttlMs - Tiempo de vida del lock en milisegundos
+     */
+    async setNX(key, ttlMs) {
+        try {
+            if (!this.isConnected || !this.client) return true; // sin Redis → permitir ejecución
+            const result = await this.client.set(key, '1', { NX: true, PX: ttlMs });
+            return result === 'OK';
+        } catch (error) {
+            console.error(chalk.red('❌ Error al adquirir lock en Redis:'), error.message);
+            return true; // ante falla, permitir ejecución para no bloquear el job
+        }
+    }
+
     async disconnect() {
         try {
             if (this.client) {

@@ -48,8 +48,9 @@ const getAllUsersHandler = async (res, filters) => {
 
 // Registro de usuario admin (super_admin / administrador / empleado)
 const registerAdminUserHandler = async (res, userData, req) => {
-    const { roles, user_id } = extractUserContext(req);
-    const newUser = await userService.registerAdminUser(userData, roles, user_id);
+    // role es string varchar — se pasa directo (registerAdminUser valida la jerarquía)
+    const { role, user_id } = extractUserContext(req);
+    const newUser = await userService.registerAdminUser(userData, role, user_id);
     const data = UserDto.toUserResponse(newUser);
     return ApiResponse.created(res, data, 'Usuario registrado exitosamente');
 };
@@ -87,6 +88,12 @@ const updateStaffUserHandler = async (res, userId, data) => {
     return ApiResponse.ok(res, response, 'Usuario actualizado exitosamente.');
 };
 
+// Cierra sesión invalidando el token actual en la blacklist de Redis
+const logoutHandler = async (res, token) => {
+    await userService.logoutUser(token);
+    return ApiResponse.ok(res, null, 'Sesión cerrada correctamente.');
+};
+
 module.exports = {
     createUserHandler,
     loginUserHandler,
@@ -97,5 +104,6 @@ module.exports = {
     getUsersByCompanyHandler,
     getTenantStaffHandler,
     getStaffOverviewHandler,
-    updateStaffUserHandler
+    updateStaffUserHandler,
+    logoutHandler
 };
