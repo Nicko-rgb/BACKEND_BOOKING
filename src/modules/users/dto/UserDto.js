@@ -161,7 +161,7 @@ const createAdminUserDto = Joi.object({
         'string.empty': 'El correo es obligatorio.',
         'any.required': 'El correo es obligatorio.'
     }),
-    password: Joi.string().pattern(/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)[A-Za-z\d]{8,}$/).required().messages({
+    password: Joi.string().pattern(/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{8,}$/).required().messages({
         'string.pattern.base': 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.',
         'string.empty': 'La contraseña es obligatoria.',
         'any.required': 'La contraseña es obligatoria.'

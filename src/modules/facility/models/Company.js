@@ -50,12 +50,12 @@ const Company = sequelize.define('Company', {
     },
     ubigeo_id: {
         type: DataTypes.BIGINT,
-        allowNull: true,
+        allowNull: false, // Nivel 3 (distrito/ciudad) obligatorio
         references: {
             model: 'dsg_bss_ubigeo',
             key: 'ubigeo_id'
         },
-        comment: 'Nivel geográfico asignado (departamento, provincia o distrito)'
+        comment: 'Nivel geográfico asignado — debe ser nivel 3 (distrito/ciudad)'
     },
     phone_cell: {
         type: DataTypes.STRING(20),
@@ -64,7 +64,7 @@ const Company = sequelize.define('Company', {
     },
     phone: {
         type: DataTypes.STRING(20),
-        allowNull: false,
+        allowNull: true, // Opcional — no todas las empresas tienen teléfono fijo
         comment: 'Teléfono fijo de contacto'
     },
     website: {
@@ -167,12 +167,10 @@ const Company = sequelize.define('Company', {
     underscored: true,
     comment: 'Tabla de compañías y sucursales deportivas',
     indexes: [
-        // Índice único para el documento fiscal (RUC/NIT) ──────────────────────────────
-        {
-            name: 'idx_company_document_unique',
-            unique: true,
-            fields: ['document']
-        },
+        // Nota: sin UNIQUE global en 'document' — las sucursales heredan y comparten
+        // el RUC/NIT de su empresa madre. La unicidad se valida en CompanyService
+        // solo para empresas padre (parent_company_id IS NULL).
+
         // Índice para filtrar sucursales de un tenant ──────────────────────────────────
         {
             name: 'idx_company_tenant_id',

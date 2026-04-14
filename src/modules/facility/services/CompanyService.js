@@ -38,6 +38,8 @@ const registerCompany = async (companyData, userId, files = {}) => {
 
         tenantId = parentCompany.tenant_id;
         companyData.country_id = companyData.country_id || parentCompany.country_id;
+        // Sucursal hereda el número de documento (RUC/NIT) de su empresa madre ─────────
+        companyData.document = parentCompany.document;
     } else {
         // Es una EMPRESA PRINCIPAL
         const existingParentCompany = await CompanyRepository.existsParentByDocument(companyData.document);

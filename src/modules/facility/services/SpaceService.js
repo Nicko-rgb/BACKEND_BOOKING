@@ -255,6 +255,10 @@ const createSchedules = async (spaceId, schedulesData, userId, userContext = nul
             const branchOpen = openingTime ? openingTime.substring(0, 5) : null;
             const branchClose = closingTime ? closingTime.substring(0, 5) : null;
 
+            // 00:00 representa medianoche = fin del día → se trata como "24:00" para comparación
+            // Esto evita que horarios como "18:00" sean rechazados cuando el cierre es "00:00"
+            const effectiveBranchClose = branchClose === '00:00' ? '24:00' : branchClose;
+
             // 1. Validar integridad del bloque (inicio < fin)
             if (currentStart >= currentEnd) {
                 throw new BadRequestError(`Error en ${day}: El horario ${currentStart}-${currentEnd} es inválido (inicio >= fin).`);
@@ -264,8 +268,8 @@ const createSchedules = async (spaceId, schedulesData, userId, userContext = nul
             if (branchOpen && currentStart < branchOpen) {
                 throw new BadRequestError(`Error en ${day}: El horario ${currentStart} es antes de la hora de apertura de la sucursal (${branchOpen}).`);
             }
-            if (branchClose && currentEnd > branchClose) {
-                throw new BadRequestError(`Error en ${day}: El horario ${currentEnd} es después de la hora de cierre de la sucursal (${branchClose}).`);
+            if (effectiveBranchClose && currentEnd > effectiveBranchClose) {
+                throw new BadRequestError(`Error en ${day}: El horario ${currentEnd} es después del cierre (${branchClose}) de la sucursal.`);
             }
 
             // 3. Validar solapamiento con el siguiente bloque

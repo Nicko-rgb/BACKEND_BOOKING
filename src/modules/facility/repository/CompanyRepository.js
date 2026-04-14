@@ -217,7 +217,9 @@ const findAll = async (filters = {}, pagination = {}, transaction = null) => {
         options.transaction = transaction;
     }
 
-    const result = await Company.findAndCountAll(options);
+    // distinct:true evita que JOINs con Media inflen el count cuando una empresa
+    // tiene múltiples registros asociados ─────────────────────────────────────
+    const result = await Company.findAndCountAll({ ...options, distinct: true });
 
     return {
         companies: result.rows,

@@ -143,7 +143,10 @@ class BookingService {
                 const fmt = (t) => t.substring(0, 5);
 
                 const openMin = toMinutes(sucursal.opening_time);
-                const closeMin = toMinutes(sucursal.closing_time);
+                // 00:00 representa medianoche = fin del día → se trata como 1440 min (24:00)
+                // Evita que horas como 18:00 (1080 min) sean rechazadas por ser > 0 min
+                const rawCloseMin = toMinutes(sucursal.closing_time);
+                const closeMin = rawCloseMin === 0 ? 1440 : rawCloseMin;
                 const openFmt = fmt(sucursal.opening_time);
                 const closeFmt = fmt(sucursal.closing_time);
 

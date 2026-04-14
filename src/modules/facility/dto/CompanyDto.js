@@ -50,16 +50,18 @@ const createCompanyDto = Joi.object({
             'any.required': 'La dirección es obligatoria'
         }),
 
+    // Nivel 3 de ubigeo (distrito/ciudad) — obligatorio
     ubigeo_id: Joi.alternatives()
         .try(
             Joi.number().integer().positive(),
             Joi.string().regex(/^\d+$/).custom(v => parseInt(v, 10))
         )
-        .optional()
-        .allow(null)
+        .required()
         .messages({
             'number.base': 'El ID geográfico debe ser un número',
-            'number.positive': 'El ID geográfico debe ser positivo'
+            'number.positive': 'El ID geográfico debe ser positivo',
+            'alternatives.match': 'El distrito/ciudad es obligatorio',
+            'any.required': 'El distrito/ciudad es obligatorio'
         }),
 
     phone_cell: Joi.string()
@@ -73,11 +75,11 @@ const createCompanyDto = Joi.object({
 
     phone: Joi.string()
         .pattern(/^[+]?[0-9\s\-()]{7,20}$/)
-        .required()
+        .optional()
+        .allow('', null)
         .messages({
             'string.base': 'El teléfono debe ser una cadena',
-            'string.pattern.base': 'El teléfono debe tener un formato válido',
-            'any.required': 'El teléfono es obligatorio'
+            'string.pattern.base': 'El teléfono debe tener un formato válido'
         }),
 
     website: Joi.string()
@@ -228,16 +230,18 @@ const updateCompanyDto = Joi.object({
         .trim()
         .optional(),
 
+    // Nivel 3 de ubigeo (distrito/ciudad) — obligatorio también en edición
     ubigeo_id: Joi.alternatives()
         .try(
             Joi.number().integer().positive(),
             Joi.string().regex(/^\d+$/).custom(v => parseInt(v, 10))
         )
-        .optional()
-        .allow(null)
+        .required()
         .messages({
             'number.base': 'El ID geográfico debe ser un número',
-            'number.positive': 'El ID geográfico debe ser positivo'
+            'number.positive': 'El ID geográfico debe ser positivo',
+            'alternatives.match': 'El distrito/ciudad es obligatorio',
+            'any.required': 'El distrito/ciudad es obligatorio'
         }),
 
     phone_cell: Joi.string()
