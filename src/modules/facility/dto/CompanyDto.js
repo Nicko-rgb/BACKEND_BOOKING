@@ -782,9 +782,9 @@ const publicSucursalQueryDto = Joi.object({
     parking: Joi.boolean(),
     // Ordenamiento ────────────────────────────────────────────────────────────
     sort_by: Joi.string().valid('distance', 'price_asc', 'price_desc', 'name').default('distance'),
-    // Paginación ──────────────────────────────────────────────────────────────
+    // Paginación — limit 500 permite cargar todos los pins en la vista de mapa ─
     page: Joi.number().integer().min(1).default(1),
-    limit: Joi.number().integer().min(1).max(48).default(12),
+    limit: Joi.number().integer().min(1).max(500).default(12),
 });
 
 module.exports = {
