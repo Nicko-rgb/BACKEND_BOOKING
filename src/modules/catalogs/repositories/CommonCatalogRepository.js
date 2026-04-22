@@ -4,8 +4,10 @@ class CommonCatalogRepository {
     /**
      * Obtiene todos los tipos de deporte
      */
+    // Solo retorna deportes activos para el catálogo público ──────────────────
     static async findAllSportTypes() {
         return await SportType.findAll({
+            where: { is_active: true },
             attributes: [['sport_type_id', 'id'], ['name', 'label']],
             order: [['name', 'ASC']]
         });
