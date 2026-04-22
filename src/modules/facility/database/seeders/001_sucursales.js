@@ -1,5 +1,9 @@
-const { Company } = require('../modules/facility/models');
-const Ubigeo = require('../modules/catalogs/models/Ubigeo');
+/**
+ * Seeder: sucursales de prueba (solo desarrollo)
+ * seedName debe coincidir con el registrado en dsg_bss_seed_meta en producción.
+ */
+const { Company } = require('../../models');
+const Ubigeo = require('../../../catalogs/models/Ubigeo');
 
 // Definición base de sucursales — distCode se resuelve a ubigeo_id en tiempo de ejecución
 const sucursalesSeedBase = [
@@ -110,7 +114,7 @@ const sucursalesSeedBase = [
     }
 ];
 
-const seedSucursales = async (systemUserId) => {
+const seedFn = async (systemUserId) => {
     const withAudit = (data) => ({
         ...data,
         user_create: systemUserId,
@@ -176,4 +180,10 @@ const seedSucursales = async (systemUserId) => {
     }
 };
 
-module.exports = { seedSucursales };
+module.exports = {
+    seedName: 'sucursalesSeed',
+    environment: 'demo',
+    dependsOnSystemUser: true,
+    order: 80,
+    seedFn
+};

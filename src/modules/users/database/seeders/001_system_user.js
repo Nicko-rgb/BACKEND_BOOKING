@@ -1,14 +1,11 @@
 /**
- * systemUserSeed — Crea el usuario 'system' con todos los permisos del catálogo.
- *
- * Ya no crea roles (tabla dsg_bss_roles eliminada).
- * El sistema usa permisos directos por usuario (dsg_bss_user_permissions).
- *
- * Dependencia: permissionSeed debe correr antes para que existan los permisos.
+ * Seeder: usuario system con todos los permisos
+ * seedName debe coincidir con el registrado en dsg_bss_seed_meta en producción.
+ * seedFn retorna el systemUserId para pasarlo a seeders posteriores.
  */
 const bcrypt = require('bcryptjs');
-const { User, UserPermission } = require('../modules/users/models');
-const { Permission } = require('../modules/catalogs/models');
+const { User, UserPermission } = require('../../models');
+const { Permission } = require('../../../catalogs/models');
 
 // Datos del usuario del sistema ────────────────────────────────────────────────
 const SYSTEM_USER_DATA = {
@@ -25,7 +22,7 @@ const SYSTEM_USER_DATA = {
  * Si el usuario ya existe, solo sincroniza sus permisos.
  * @returns {number} user_id del usuario system
  */
-const seedSystemUser = async () => {
+const seedFn = async () => {
     console.log('👤 Creando usuario system...');
 
     // Crear o recuperar el usuario system ──────────────────────────────────────
@@ -74,4 +71,10 @@ const seedSystemUser = async () => {
     return systemUser.user_id;
 };
 
-module.exports = { seedSystemUser };
+module.exports = {
+    seedName: 'systemUserSeed',
+    environment: 'essential',
+    dependsOnSystemUser: false,
+    order: 20,
+    seedFn
+};

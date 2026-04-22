@@ -45,10 +45,22 @@ const Ubigeo = sequelize.define('Ubigeo', {
             key: 'country_id'
         },
         comment: 'País al que pertenece este registro geográfico'
+    },
+    created_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW
+    },
+    updated_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW
     }
 }, {
     tableName: 'dsg_bss_ubigeo',
-    timestamps: false,
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
     comment: 'Tabla geográfica unificada y autorreferenciada por niveles',
     indexes: [
         // Índice compuesto para filtrar por país y nivel (consulta principal de cascada) ──

@@ -22,10 +22,22 @@ const Department = sequelize.define('Department', {
         type: DataTypes.STRING(100),
         allowNull: false,
         comment: 'Nombre del departamento'
+    },
+    created_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW
+    },
+    updated_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW
     }
 }, {
     tableName: 'dsg_bss_department',
-    timestamps: false,
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
     comment: 'Tabla de departamentos/estados por país'
 });
 

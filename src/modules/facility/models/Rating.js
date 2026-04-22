@@ -103,6 +103,7 @@ const Rating = sequelize.define('Rating', {
 }, {
     tableName: 'dsg_bss_ratings', // Tabla: calificaciones y reseñas
     timestamps: true,
+    createdAt: 'created_at',
     updatedAt: 'updated_at',
     comment: 'Tabla de calificaciones y reseñas sobre sucursales o reservas',
     indexes: [

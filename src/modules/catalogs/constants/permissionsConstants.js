@@ -1,12 +1,11 @@
 /**
- * permissionSeed — Pobla el catálogo de permisos (dsg_bss_permissions).
+ * permissionsConstants.js
+ * Catálogo de permisos y permisos por defecto por tipo de rol.
  *
- * También define DEFAULT_PERMISSIONS por tipo de rol, que UserRepository
- * usa al crear nuevos usuarios para insertar sus permisos iniciales.
- *
- * Ya no sincroniza dsg_bss_role_permissions (tabla eliminada).
+ * Estos datos son de referencia de negocio — se usan tanto en el seed
+ * de permisos como en runtime (UserRepository, UserManagementService)
+ * para asignar permisos iniciales al crear usuarios.
  */
-const { Permission } = require('../modules/catalogs/models');
 
 /**
  * Catálogo completo de permisos del sistema.
@@ -65,6 +64,10 @@ const PERMISSIONS_CATALOG = [
     { key: 'country.manage',          label: 'Gestionar catálogo de países',     module: 'system', app_access: 'admin' },
     { key: 'payment_type.manage',     label: 'Gestionar tipos de pago',          module: 'system', app_access: 'admin' },
     { key: 'menu.manage',             label: 'Gestionar menú del sistema',       module: 'system', app_access: 'admin' },
+    { key: 'sport_type.manage',       label: 'Gestionar tipos de deporte',       module: 'system', app_access: 'admin' },
+    { key: 'sport_category.manage',   label: 'Gestionar categorías deportivas',  module: 'system', app_access: 'admin' },
+    { key: 'surface_type.manage',     label: 'Gestionar tipos de superficie',    module: 'system', app_access: 'admin' },
+    { key: 'ubigeo.manage',           label: 'Gestionar ubigeo (divisiones geográficas)', module: 'system', app_access: 'admin' },
 ];
 
 /**
@@ -132,28 +135,4 @@ const DEFAULT_PERMISSIONS = {
     ],
 };
 
-/**
- * Popula el catálogo de permisos en dsg_bss_permissions.
- * Inserta nuevos permisos y actualiza los existentes.
- */
-const seedPermissions = async () => {
-    console.log('🔐 Creando catálogo de permisos...');
-
-    for (const perm of PERMISSIONS_CATALOG) {
-        const [, created] = await Permission.findOrCreate({
-            where:    { key: perm.key },
-            defaults: perm,
-        });
-        // Actualizar label/módulo si el permiso ya existía ───────────────────
-        if (!created) {
-            await Permission.update(
-                { label: perm.label, module: perm.module, app_access: perm.app_access },
-                { where: { key: perm.key } }
-            );
-        }
-    }
-
-    console.log(`   ✅ ${PERMISSIONS_CATALOG.length} permisos sincronizados`);
-};
-
-module.exports = { seedPermissions, PERMISSIONS_CATALOG, DEFAULT_PERMISSIONS };
+module.exports = { PERMISSIONS_CATALOG, DEFAULT_PERMISSIONS };

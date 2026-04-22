@@ -105,6 +105,7 @@ const PaymentType = sequelize.define('PaymentType', {
     tableName: 'dsg_bss_payment_types',
     timestamps: true,
     createdAt: 'created_at',
+    updatedAt: 'updated_at',
     indexes: [
         {
             unique: true,

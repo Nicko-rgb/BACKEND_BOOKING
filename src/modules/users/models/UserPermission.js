@@ -47,9 +47,16 @@ const UserPermission = sequelize.define('UserPermission', {
         allowNull: false,
         defaultValue: DataTypes.NOW,
     },
+    updated_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+    },
 }, {
     tableName: 'dsg_bss_user_permissions',
-    timestamps: false,
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
     indexes: [
         {
             unique: true,

@@ -164,7 +164,7 @@ pm2 restart booking-backend --update-env
 ```
 
 > Los seeds de demo (empresas, sucursales, espacios) **nunca corren en producción**
-> gracias a la separación en `src/seeds/indexSeed.js`.
+> gracias a la separación en `src/database/seederRunner.js`.
 
 ---
 
@@ -355,6 +355,6 @@ Usuario
 ## 13. Notas importantes
 
 - `DB_FORCE_SYNC=true` está **bloqueado en producción** por código en `server.js` para evitar pérdida de datos.
-- Los seeds de demo (empresas, sucursales, espacios) **no corren en producción** — ver `src/seeds/indexSeed.js`.
+- Los seeds de demo (empresas, sucursales, espacios) **no corren en producción** — ver `src/database/seederRunner.js`.
 - El frontend corre en HTTPS (Vercel) y el backend en HTTPS (Nginx + Let's Encrypt) — sin problemas de mixed content.
 - El VPS no expone PostgreSQL ni Redis a internet — solo puertos 22, 80 y 443.

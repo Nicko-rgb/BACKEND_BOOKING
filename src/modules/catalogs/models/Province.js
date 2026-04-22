@@ -27,10 +27,22 @@ const Province = sequelize.define('Province', {
         type: DataTypes.CHAR(20),
         allowNull: true,
         comment: 'Código ubigeo generado automáticamente (dept_code + prov_code)'
+    },
+    created_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW
+    },
+    updated_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW
     }
 }, {
     tableName: 'dsg_bss_province',
-    timestamps: false,
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
     comment: 'Tabla de provincias por departamento'
 });
 

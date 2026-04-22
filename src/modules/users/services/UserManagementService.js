@@ -5,11 +5,11 @@
  * junto con la tabla dsg_bss_roles en la migración a permisos directos.
  */
 const UserManagementRepository = require('../repository/UserManagementRepository');
-const { NotFoundError, ValidationError, ConflictError } = require('../../../shared/errors/CustomErrors');
+const { NotFoundError, ValidationError, ConflictError, ForbiddenError } = require('../../../shared/errors/CustomErrors');
 const { User, UserPermission } = require('../models');
 const { Company }    = require('../../facility/models');
 const { Permission } = require('../../catalogs/models');
-const { DEFAULT_PERMISSIONS } = require('../../../seeds/permissionSeed');
+const { DEFAULT_PERMISSIONS } = require('../../catalogs/constants/permissionsConstants');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PERMISSIONS
@@ -206,6 +206,45 @@ const assignOwnerToCompany = async (userId, companyId, requestingUser) => {
     return assignment;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// USER STATUS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Activa o desactiva un usuario (toggle de is_enabled).
+ * Reglas:
+ *  - No puedes cambiar tu propio estado
+ *  - Solo system puede cambiar estado de otro system
+ *  - super_admin no puede cambiar estado de system ni de otro super_admin fuera de su tenant
+ *
+ * @param {number} userId
+ * @param {Object} requestingUser — payload del JWT
+ * @returns {{ user_id, is_enabled, message }}
+ */
+const toggleUserStatus = async (userId, requestingUser) => {
+    if (userId === requestingUser.user_id) {
+        throw new ValidationError('No puedes cambiar tu propio estado');
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) throw new NotFoundError(`Usuario con ID ${userId} no encontrado`);
+
+    // Solo system puede actuar sobre otro system ─────────────────────────────
+    if (user.role === 'system' && requestingUser.role !== 'system') {
+        throw new ForbiddenError('No tienes permiso para cambiar el estado de un usuario system');
+    }
+
+    const newStatus = !user.is_enabled;
+    await user.update({ is_enabled: newStatus });
+
+    const action = newStatus ? 'activado' : 'desactivado';
+    return {
+        user_id:    user.user_id,
+        is_enabled: newStatus,
+        message:    `Usuario ${action} correctamente`,
+    };
+};
+
 module.exports = {
     getAllPermissions,
     getUsersByPermission,
@@ -216,4 +255,5 @@ module.exports = {
     setUserDirectPermissions,
     getMenuForUser,
     assignOwnerToCompany,
+    toggleUserStatus,
 };

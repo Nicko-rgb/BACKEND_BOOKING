@@ -8,6 +8,8 @@
  * Relaciones:
  * - Tiene muchos Space (espacios deportivos)
  */
+
+// Tiene migracion is_active 001_active_sport.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../../../config/db');
 
@@ -27,13 +29,27 @@ const SportType = sequelize.define('SportType', {
         type: DataTypes.STRING(64),
         allowNull: false,
         comment: 'Nombre del tipo de deporte'
+    },
+    is_active: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true
+    },
+    created_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW
+    },
+    updated_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW
     }
 }, {
     tableName: 'dsg_bss_sport_type',
     timestamps: true,
     createdAt: 'created_at',
-    updatedAt: false,
-    underscored: true,
+    updatedAt: 'updated_at',
     comment: 'Catálogo de tipos de deportes',
     indexes: [
         {

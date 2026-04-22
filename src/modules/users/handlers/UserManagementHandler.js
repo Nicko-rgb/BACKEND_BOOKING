@@ -62,6 +62,14 @@ const assignOwner = async (res, userId, companyId, requestingUser) => {
     return ApiResponse.created(res, assignment, 'Propietario asignado exitosamente');
 };
 
+// ── Toggle estado de usuario ──────────────────────────────────────────────────
+
+/** Activa o desactiva un usuario (toggle is_enabled). */
+const toggleUserStatus = async (res, userId, requestingUser) => {
+    const result = await UserManagementService.toggleUserStatus(userId, requestingUser);
+    return ApiResponse.ok(res, result, result.message);
+};
+
 module.exports = {
     getPermissions,
     getUsersByPermission,
@@ -72,4 +80,5 @@ module.exports = {
     setUserDirectPermissions,
     getMenu,
     assignOwner,
+    toggleUserStatus,
 };

@@ -29,10 +29,22 @@ const District = sequelize.define('District', {
         type: DataTypes.CHAR(30),
         allowNull: true,
         comment: 'Código ubigeo generado automáticamente (dept_code + prov_code + dist_code)'
+    },
+    created_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW
+    },
+    updated_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW
     }
 }, {
     tableName: 'dsg_bss_district',
-    timestamps: false,
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
     comment: 'Tabla de distritos por provincia'
 });
 

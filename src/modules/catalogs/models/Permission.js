@@ -49,9 +49,16 @@ const Permission = sequelize.define('Permission', {
         allowNull: false,
         defaultValue: DataTypes.NOW,
     },
+    updated_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+    },
 }, {
     tableName: 'dsg_bss_permissions',
-    timestamps: false,
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
     comment: 'Catálogo de permisos disponibles en el sistema',
     indexes: [
         // Índice para filtrar permisos por módulo ──────────────────────────────────────

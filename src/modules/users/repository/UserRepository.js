@@ -11,7 +11,7 @@ const User = require('../models/User');
 const { UserCompany, Person, UserPermission } = require('../models');
 const { Country } = require('../../catalogs/models');
 const { Company } = require('../../facility/models');
-const { DEFAULT_PERMISSIONS } = require('../../../seeds/permissionSeed');
+const { DEFAULT_PERMISSIONS } = require('../../catalogs/constants/permissionsConstants');
 const { Op, Sequelize } = require('sequelize');
 
 /**

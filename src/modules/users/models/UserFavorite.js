@@ -38,12 +38,21 @@ const UserFavorite = sequelize.define('UserFavorite', {
     },
     created_at: {
         type: DataTypes.DATE,
+        allowNull: false,
         defaultValue: DataTypes.NOW,
         comment: 'Fecha en que se añadió a favoritos'
+    },
+    updated_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+        comment: 'Fecha de última actualización'
     }
 }, {
-    tableName: 'dsg_bss_user_favorites', // Tabla: favoritos de usuario
-    timestamps: false,
+    tableName: 'dsg_bss_user_favorites',
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
     indexes: [
         {
             unique: true,

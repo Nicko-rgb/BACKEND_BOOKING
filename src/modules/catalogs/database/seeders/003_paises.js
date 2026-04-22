@@ -1,11 +1,10 @@
 /**
- * paisesSeed.js
- * Pobla los países iniciales del sistema.
+ * Seeder: países iniciales del sistema (dsg_bss_country)
  * Idempotente: usa findOrCreate.
  */
-const { Country } = require('../modules/catalogs/models');
+const { Country } = require('../../models');
 
-// ─── Países ───────────────────────────────────────────────────────────────────
+// Datos de países ─────────────────────────────────────────────────────────────
 const paisesIniciales = [
     { country: 'Argentina', iso_country: 'AR', phone_code: '+54', iso_currency: 'ARS', currency: 'Peso Argentino', currency_simbol: '$', time_zone: 'America/Argentina/Buenos_Aires', language: 'es', date_format: 'DD/MM/YYYY', flag_url: 'https://flagcdn.com/ar.svg' },
     { country: 'Brasil', iso_country: 'BR', phone_code: '+55', iso_currency: 'BRL', currency: 'Real Brasileño', currency_simbol: 'R$', time_zone: 'America/Sao_Paulo', language: 'pt', date_format: 'DD/MM/YYYY', flag_url: 'https://flagcdn.com/br.svg' },
@@ -20,10 +19,9 @@ const paisesIniciales = [
 ];
 
 /**
- * Inserta los países iniciales del sistema.
  * @param {number} systemUserId - ID del usuario sistema para campos de auditoría
  */
-const seedPaises = async (systemUserId) => {
+const seedFn = async (systemUserId) => {
     const withAudit = (data) => ({ ...data, user_create: systemUserId, user_update: systemUserId });
 
     console.log('\n🌍 Creando países...');
@@ -38,4 +36,10 @@ const seedPaises = async (systemUserId) => {
     console.log('\n✅ Seed de países completado.\n');
 };
 
-module.exports = { seedPaises };
+module.exports = {
+    seedName: 'paisesSeed',
+    environment: 'essential',
+    dependsOnSystemUser: true,
+    order: 40,
+    seedFn
+};

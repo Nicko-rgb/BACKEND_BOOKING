@@ -127,6 +127,7 @@ const Booking = sequelize.define('Booking', {
     tableName: 'dsg_bss_booking',
     timestamps: true,
     createdAt: 'created_at',
+    updatedAt: 'updated_at',
     comment: 'Tabla que almacena las reservas de espacios deportivos',
     indexes: [
         {

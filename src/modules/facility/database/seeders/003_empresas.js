@@ -10,8 +10,8 @@
  * Idempotente: usa findOrCreate — se puede correr varias veces sin duplicar.
  */
 
-const { Company, Configuration, Space } = require('../modules/facility/models');
-const { SurfaceType, SportType, SportCategory, Ubigeo } = require('../modules/catalogs/models');
+const { Company, Configuration, Space } = require('../../models');
+const { SurfaceType, SportType, SportCategory, Ubigeo } = require('../../../catalogs/models');
 
 // ─── Datos de empresas ────────────────────────────────────────────────────────
 
@@ -241,7 +241,7 @@ const EMPRESAS = [
 
 // ─── Función principal ────────────────────────────────────────────────────────
 
-const seedEmpresas = async (systemUserId) => {
+const seedFn = async (systemUserId) => {
     const audit = (data) => ({ ...data, user_create: systemUserId, user_update: systemUserId });
 
     // Lookup de ubigeo_ids por código de distrito ─────────────────────────
@@ -370,4 +370,10 @@ const seedEmpresas = async (systemUserId) => {
     console.log('\n🎉 Seed de empresas completado.\n');
 };
 
-module.exports = { seedEmpresas };
+module.exports = {
+    seedName: 'empresasSeed',
+    environment: 'demo',
+    dependsOnSystemUser: true,
+    order: 100,
+    seedFn
+};

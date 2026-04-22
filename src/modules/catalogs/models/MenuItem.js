@@ -72,9 +72,16 @@ const MenuItem = sequelize.define('MenuItem', {
         allowNull: false,
         defaultValue: DataTypes.NOW,
     },
+    updated_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+    },
 }, {
     tableName: 'dsg_bss_menu_items',
-    timestamps: false,
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
     indexes: [
         {
             fields: ['app_access', 'is_active'],

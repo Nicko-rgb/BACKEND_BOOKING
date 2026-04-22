@@ -11,13 +11,16 @@ const jwt = require('jsonwebtoken');
 const { randomUUID } = require('crypto');
 const userRepository = require('../repository/UserRepository');
 const CompanyRepository = require('../../facility/repository/CompanyRepository');
+const { UserPermission } = require('../models');
+const { Permission } = require('../../catalogs/models');
 const redisClient = require('../../../config/redisConfig');
 const { ConflictError, NotFoundError, UnauthorizedError, BadRequestError, ForbiddenError } = require('../../../shared/errors/CustomErrors');
 
 // Roles que pueden acceder al módulo administrador ────────────────────────────
 const ADMIN_APP_ROLES = ['system', 'super_admin', 'administrador', 'empleado'];
-// Roles que se pueden registrar desde la UI (no se puede crear system) ────────
-const REGISTERABLE_ROLES = ['super_admin', 'administrador', 'empleado'];
+// Roles que se pueden registrar desde la UI — 'system' está permitido pero
+// con guardas adicionales: solo un creador con rol 'system' puede crear otro.
+const REGISTERABLE_ROLES = ['system', 'super_admin', 'administrador', 'empleado'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -265,38 +268,43 @@ const registerAdminUser = async (userData, creatorRole = '', creatorId) => {
         throw new BadRequestError('Rol no válido para registro');
     }
 
-    // administrador solo puede crear empleados ─────────────────────────────────
-    if (creatorRole === 'administrador') {
-        if (role !== 'empleado') {
-            throw new ForbiddenError('Los administradores solo pueden registrar empleados');
-        }
+    // ── Jerarquía de creación ────────────────────────────────────────────────
+    // Solo system puede crear system — guarda crítica para privilegios totales
+    if (role === 'system' && creatorRole !== 'system') {
+        throw new ForbiddenError('Solo un usuario system puede registrar otro usuario system');
     }
-
+    // administrador solo puede crear empleados ─────────────────────────────────
+    if (creatorRole === 'administrador' && role !== 'empleado') {
+        throw new ForbiddenError('Los administradores solo pueden registrar empleados');
+    }
     // super_admin solo puede crear administrador y empleado ────────────────────
-    if (creatorRole === 'super_admin') {
-        if (!['administrador', 'empleado'].includes(role)) {
-            throw new ForbiddenError('Solo puedes registrar administradores y empleados');
-        }
+    if (creatorRole === 'super_admin' && !['administrador', 'empleado'].includes(role)) {
+        throw new ForbiddenError('Solo puedes registrar administradores y empleados');
     }
 
     const exists = await userRepository.findUserByEmail(email);
     if (exists) throw new ConflictError('Ya existe un usuario con ese correo');
 
-    const company = await CompanyRepository.findById(company_id);
-    if (!company) throw new NotFoundError('La empresa o sucursal especificada no existe');
+    // Los system no se asignan a una empresa — se omite la validación ──────────
+    let company = null;
+    if (role !== 'system') {
+        company = await CompanyRepository.findById(company_id);
+        if (!company) throw new NotFoundError('La empresa o sucursal especificada no existe');
 
-    // Validar unicidad por rol y empresa/sucursal ─────────────────────────────
-    if (role === 'super_admin') {
-        const count = await userRepository.countStaffByRoleForCompany(company_id, 'super_admin');
-        if (count > 0) throw new ConflictError('Esta empresa ya tiene un propietario (super_admin) asignado');
-    } else if (role === 'administrador') {
-        const count = await userRepository.countStaffByRoleForCompany(company_id, 'administrador');
-        if (count > 0) throw new ConflictError('Esta sucursal ya tiene un administrador asignado');
+        // Unicidad por rol y empresa/sucursal ──────────────────────────────────
+        if (role === 'super_admin') {
+            const count = await userRepository.countStaffByRoleForCompany(company_id, 'super_admin');
+            if (count > 0) throw new ConflictError('Esta empresa ya tiene un propietario (super_admin) asignado');
+        } else if (role === 'administrador') {
+            const count = await userRepository.countStaffByRoleForCompany(company_id, 'administrador');
+            if (count > 0) throw new ConflictError('Esta sucursal ya tiene un administrador asignado');
+        }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Crear usuario — createUserWithPermissions asigna role y permisos por defecto
+    // Crear usuario + persona — role='system' recibirá solo system.full_access
+    // por DEFAULT_PERMISSIONS; los permisos completos se añaden abajo.
     const newUser = await userRepository.createUserWithPermissions({
         first_name,
         last_name,
@@ -312,12 +320,35 @@ const registerAdminUser = async (userData, creatorRole = '', creatorId) => {
         date_birth,
     }, role);
 
-    // Vincular al company/sucursal con su tenant ───────────────────────────────
-    await userRepository.assignUserToCompany(
-        newUser.user_id, company_id, role, company.tenant_id, creatorId
-    );
+    if (role === 'system') {
+        // Otorga todos los permisos del catálogo — mismo patrón que systemUserSeed
+        await grantAllPermissionsToUser(newUser.user_id, creatorId);
+    } else {
+        // Vincular al company/sucursal con su tenant ───────────────────────────
+        await userRepository.assignUserToCompany(
+            newUser.user_id, company_id, role, company.tenant_id, creatorId
+        );
+    }
 
     return newUser;
+};
+
+/**
+ * Inserta todos los permisos del catálogo en user_permissions para un usuario.
+ * Usado al crear usuarios 'system' — replica el comportamiento del seeder.
+ * @param {number} userId
+ * @param {number} grantedBy  user_id del creador (para auditoría)
+ */
+const grantAllPermissionsToUser = async (userId, grantedBy) => {
+    const allPermissions = await Permission.findAll({ attributes: ['key'] });
+    await UserPermission.bulkCreate(
+        allPermissions.map(p => ({
+            user_id:        userId,
+            permission_key: p.key,
+            granted_by:     grantedBy,
+        })),
+        { ignoreDuplicates: true }
+    );
 };
 
 // ─── Getters de staff ─────────────────────────────────────────────────────────

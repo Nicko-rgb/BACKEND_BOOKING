@@ -30,6 +30,7 @@ const {
     setUserDirectPermissions,
     getMenu,
     assignOwner,
+    toggleUserStatus,
 } = require('../controllers/UserManagementController');
 
 // ── Menú dinámico — cualquier usuario admin autenticado puede acceder ─────────
@@ -88,6 +89,11 @@ router.put('/:userId/permissions',
     ...protegerPermiso('role.manage'),
     validateDTO(setUserPermissionsDto),
     GlobalErrorHandler.asyncHandler(setUserDirectPermissions)
+);
+
+router.put('/:userId/status',
+    ...protegerPermiso('employee.manage_own'),
+    GlobalErrorHandler.asyncHandler(toggleUserStatus)
 );
 
 module.exports = router;

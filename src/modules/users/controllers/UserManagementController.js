@@ -61,6 +61,11 @@ const assignOwner = async (req, res) => {
     await UserManagementHandler.assignOwner(res, Number(user_id), Number(company_id), req.user);
 };
 
+// PUT /api/users/:userId/status
+const toggleUserStatus = async (req, res) => {
+    await UserManagementHandler.toggleUserStatus(res, Number(req.params.userId), req.user);
+};
+
 module.exports = {
     getPermissions,
     getUsersByPermission,
@@ -71,4 +76,5 @@ module.exports = {
     setUserDirectPermissions,
     getMenu,
     assignOwner,
+    toggleUserStatus,
 };

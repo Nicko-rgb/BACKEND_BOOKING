@@ -21,7 +21,8 @@ const chalk = require('chalk');
 const path = require('path');
 const sequelize = require('./src/config/db');
 const logger = require('./src/config/logger');
-const { runAllSeeds } = require('./src/seeds/indexSeed');
+const { runPendingMigrations } = require('./scripts/migrationRunner');
+const { runAllSeeds } = require('./scripts/seederRunner');
 const GlobalErrorHandler = require('./src/shared/handlers/GlobalErrorHandler');
 const userRoutes = require('./src/modules/users/routes/UserRoute');
 const userManagementRoutes = require('./src/modules/users/routes/userManagementRoutes');
@@ -30,6 +31,7 @@ const configRoutes = require('./src/modules/facility/routes/configRoutes');
 const paymentFacilityRoutes = require('./src/modules/facility/routes/paymentRoutes');
 const spaceRoutes = require('./src/modules/facility/routes/spaceRoutes');
 const indexCatalogsRoute = require('./src/modules/catalogs/routes/indexCatalogsRoute');
+const catalogsAdminRoute = require('./src/modules/catalogs/routes/catalogsAdminRoute');
 const bookingRoutes = require('./src/modules/booking/routes/bookingRoutes');
 const paymentBookingRoutes = require('./src/modules/booking/routes/paymentBookingRoutes');
 const mediaRoutes = require('./src/modules/media/routes/mediaRoutes');
@@ -149,6 +151,8 @@ app.use('/api/sucursales', companyRoutes);          // Alias de compatibilidad �
 app.use('/api/spaces', spaceRoutes);
 
 // ── Catálogos (países, roles, deportes, tipos de pago) ───────────────────────
+// Admin primero para que sus rutas protegidas capturen antes que las públicas
+app.use('/api/catalogs/admin', catalogsAdminRoute);
 app.use('/api/catalogs', indexCatalogsRoute);
 
 // ── Reservas ──────────────────────────────────────────────────────────────────
@@ -182,27 +186,27 @@ app.use(GlobalErrorHandler.handleError);
  */
 async function inicializarBaseDatos() {
     try {
-        const forceSync = process.env.DB_FORCE_SYNC === 'true';
-        const alterSync = process.env.DB_ALTER_SYNC === 'true';
+        // ── 1. Ejecutar migraciones pendientes (reemplaza sequelize.sync) ────
+        logger.info('Verificando migraciones pendientes...');
+        const { applied, failed } = await runPendingMigrations();
 
-        // Guard: DB_FORCE_SYNC=true en producción destruye todas las tablas.
-        // Detener el arranque para evitar pérdida catastrófica de datos.
-        if (process.env.NODE_ENV === 'production' && forceSync) {
-            throw new Error('DB_FORCE_SYNC=true está PROHIBIDO en producción — puede eliminar todas las tablas. Usa migraciones.');
+        if (failed) {
+            throw new Error(`Migración falló: ${failed} — el servidor no puede arrancar`);
         }
 
-        logger.info('Sincronizando modelos con la base de datos...');
-        await sequelize.sync({ force: forceSync, alter: alterSync });
-        
-        logger.info('Modelos sincronizados correctamente');
+        if (applied > 0) {
+            logger.info(`${applied} migración(es) aplicada(s)`);
+        } else {
+            logger.info('Esquema de BD actualizado — sin migraciones pendientes');
+        }
 
-        // Poblar datos iniciales si es necesario
-        if (process.env.SEED_INITIAL_DATA === 'true' || forceSync) {
+        // ── 2. Ejecutar seeders si está habilitado ───────────────────────────
+        if (process.env.SEED_INITIAL_DATA === 'true') {
             logger.info('Poblando datos iniciales...');
             await runAllSeeds();
         }
 
-        // Iniciar Job de expiración de reservas
+        // ── 3. Iniciar Job de expiración de reservas ─────────────────────────
         startExpirationJob();
 
         return true;

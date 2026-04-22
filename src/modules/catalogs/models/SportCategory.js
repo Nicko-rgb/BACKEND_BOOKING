@@ -27,13 +27,22 @@ const SportCategory = sequelize.define('SportCategory', {
         type: DataTypes.STRING(64),
         allowNull: false,
         comment: 'Nombre de la categoría deportiva'
+    },
+    created_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW
+    },
+    updated_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW
     }
 }, {
     tableName: 'dsg_bss_sport_category',
     timestamps: true,
     createdAt: 'created_at',
-    updatedAt: false,
-    underscored: true,
+    updatedAt: 'updated_at',
     comment: 'Catálogo de categorías deportivas',
     indexes: [
         {

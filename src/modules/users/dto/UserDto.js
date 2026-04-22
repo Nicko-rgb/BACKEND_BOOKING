@@ -166,17 +166,22 @@ const createAdminUserDto = Joi.object({
         'string.empty': 'La contraseña es obligatoria.',
         'any.required': 'La contraseña es obligatoria.'
     }),
-    role: Joi.string().valid('super_admin', 'administrador', 'empleado').required().messages({
-        'any.only': 'Rol no válido. Debe ser super_admin, administrador o empleado.',
+    role: Joi.string().valid('system', 'super_admin', 'administrador', 'empleado').required().messages({
+        'any.only': 'Rol no válido. Debe ser system, super_admin, administrador o empleado.',
         'any.required': 'El rol es obligatorio.'
     }),
-    company_id: Joi.number().integer().required().messages({
+    // company_id — requerido para todos excepto system (system no se asigna a una empresa)
+    company_id: Joi.number().integer().when('role', {
+        is: 'system',
+        then: Joi.optional().allow(null),
+        otherwise: Joi.required()
+    }).messages({
         'number.base': 'El ID de empresa/sucursal debe ser un número.',
         'any.required': 'El ID de empresa/sucursal es obligatorio.'
     }),
     // Datos de identidad — requeridos para super_admin, opcionales para otros roles
     phone: Joi.string().max(20).when('role', {
-        is: 'super_admin',
+        is: Joi.valid('super_admin', 'system'),
         then: Joi.required(),
         otherwise: Joi.optional().allow('', null)
     }).messages({
@@ -184,7 +189,7 @@ const createAdminUserDto = Joi.object({
         'any.required': 'El teléfono es obligatorio para el propietario.'
     }),
     document_type: Joi.string().valid('IDENTITY_CARD', 'PASSPORT', 'LICENSE', 'OTHER').when('role', {
-        is: 'super_admin',
+        is: Joi.valid('super_admin', 'system'),
         then: Joi.required(),
         otherwise: Joi.optional().allow('', null)
     }).messages({
@@ -192,7 +197,7 @@ const createAdminUserDto = Joi.object({
         'any.required': 'El tipo de documento es obligatorio para el propietario.'
     }),
     document_number: Joi.string().max(50).when('role', {
-        is: 'super_admin',
+        is: Joi.valid('super_admin', 'system'),
         then: Joi.required(),
         otherwise: Joi.optional().allow('', null)
     }).messages({
@@ -200,7 +205,7 @@ const createAdminUserDto = Joi.object({
         'any.required': 'El número de documento es obligatorio para el propietario.'
     }),
     country_id: Joi.number().integer().when('role', {
-        is: 'super_admin',
+        is: Joi.valid('super_admin', 'system'),
         then: Joi.required(),
         otherwise: Joi.optional().allow(null)
     }).messages({
