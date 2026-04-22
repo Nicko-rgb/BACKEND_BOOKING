@@ -12,6 +12,17 @@ module.exports = {
     },
 
     async up(queryInterface, sequelize, transaction) {
+        // Verificar que la tabla existe antes de alterar ──────────────────────
+        const [tableRows] = await sequelize.query(
+            `SELECT to_regclass('public.dsg_bss_rating') IS NOT NULL AS exists`,
+            { transaction }
+        );
+
+        if (!tableRows[0].exists) {
+            console.log('  ⏭️  dsg_bss_rating no existe — skipping');
+            return;
+        }
+
         for (const col of COLUMNS) {
             const [rows] = await sequelize.query(
                 `SELECT 1 FROM information_schema.columns

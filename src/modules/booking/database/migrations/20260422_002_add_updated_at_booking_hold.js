@@ -10,6 +10,17 @@ module.exports = {
     },
 
     async up(queryInterface, sequelize, transaction) {
+        // Verificar que la tabla existe ───────────────────────────────────────
+        const [tableRows] = await sequelize.query(
+            `SELECT to_regclass('public.dsg_bss_booking_hold') IS NOT NULL AS exists`,
+            { transaction }
+        );
+
+        if (!tableRows[0].exists) {
+            console.log('  ⏭️  dsg_bss_booking_hold no existe — skipping');
+            return;
+        }
+
         const [rows] = await sequelize.query(
             `SELECT 1 FROM information_schema.columns
              WHERE table_schema = 'public'
