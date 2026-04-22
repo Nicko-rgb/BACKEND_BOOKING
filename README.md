@@ -27,18 +27,17 @@ JWT_EXPIRES=24h
 # Redis & Stripe (ver .env.example)
 ```
 
-### 2. Crear la base de datos
-
-En PostgreSQL, crea la base de datos:
-
-```sql
-CREATE DATABASE db_sport;
-```
-
-### 3. Instalar dependencias
+### 2. Instalar dependencias
 
 ```bash
 npm install
+```
+
+### 3. Crear la base de datos, migrar y sembrar datos
+
+```bash
+# Crea la BD automáticamente si no existe, ejecuta migraciones y seeders
+npm run db:create
 ```
 
 ### 4. Iniciar el servidor
@@ -118,17 +117,46 @@ Todas las respuestas siguen el patrón estructurado en `ApiResponse`:
 
 ## MIGRACIONES Y SEEDERS
 
-Comandos disponibles en el CLI:
+El sistema de migraciones es por módulo. Cada módulo (`catalogs`, `users`, `media`, `facility`, `booking`, `notification`) tiene su propia carpeta `database/migrations/` y `database/seeders/`. El runner los ejecuta en orden de dependencia definido en `scripts/moduleOrder.js`.
+
+### Comandos
 
 ```bash
-npm run migrate           # Ejecuta migraciones pendientes
-npm run migrate:status    # Ver estado actual
-npm run migrate:rollback  # Revertir último batch de migración
-npm run migrate:create    # Generar un nuevo archivo de migración
-npm run seed              # Corre seeders pendientes (Datos maestros y usuarios super admin)
-npm run seed:status       # Ver estado de los seeders
-npm run db:setup          # Corre migrate + seed secuencialmente
-npm run db:reset          # (Cuidado) Elimina todo, migra y llena de nuevo (solo en desarrollo)
+# ── Migraciones ────────────────────────────────────────────────
+npm run migrate              # Ejecuta migraciones pendientes
+npm run migrate:status       # Lista todas las migraciones con su estado (Applied / Pending)
+npm run migrate:rollback     # Revierte el último batch  [BLOQUEADO en producción]
+npm run migrate:rollback -- --batch=3   # Revierte un batch específico
+
+# Generar archivo de migración con boilerplate:
+npm run migrate:create <modulo> <nombre>
+# Ejemplo: npm run migrate:create booking add_recurring_fields
+# Genera:  src/modules/booking/database/migrations/YYYYMMDD_NNN_add_recurring_fields.js
+
+# ── Seeders ────────────────────────────────────────────────────
+npm run seed                 # Ejecuta seeders pendientes (usa runOnce — no re-ejecuta)
+npm run seed:status          # Lista todos los seeders con su estado
+
+# ── Utilidades ─────────────────────────────────────────────────
+npm run db:create            # Crea la BD si no existe → migrate → seed  (onboarding completo)
+npm run db:setup             # migrate → seed  (BD ya existente)
+npm run db:reset             # Elimina TODO → migrate → seed  [BLOQUEADO en producción]
+npm run db:reset -- --force  # Igual pero sin confirmación interactiva
+npm run db:help              # Muestra esta referencia en consola
 ```
+
+### Reglas de producción
+
+| Comando | Producción |
+|---------|-----------|
+| `migrate` | ✅ Seguro — solo aplica pendientes |
+| `migrate:status` | ✅ Solo lectura |
+| `migrate:create` | ✅ Solo crea archivo local |
+| `seed` / `seed:status` | ✅ Seguros — idempotentes |
+| `db:create` / `db:setup` | ✅ Seguros — idempotentes |
+| `migrate:rollback` | ❌ Bloqueado |
+| `db:reset` | ❌ Bloqueado |
+
+> En producción nunca revertir migraciones. Para deshacer un cambio, crear una nueva migración forward.
 
 Para arquitectura completa inter-aplicación ver: `README_APP.md` en la raíz del proyecto.

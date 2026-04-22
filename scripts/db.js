@@ -446,6 +446,13 @@ async function main() {
             }
 
             case 'migrate:rollback': {
+                // Bloquear en producción — el rollback puede eliminar columnas o tablas ──
+                if (process.env.NODE_ENV === 'production') {
+                    console.error('❌ migrate:rollback está BLOQUEADO en producción.');
+                    console.error('   Crea una migración forward para revertir cambios de forma segura.');
+                    process.exitCode = 1;
+                    break;
+                }
                 const { rollbackBatch } = require('./migrationRunner');
                 const batchFlag = getFlag('batch');
                 const batch = batchFlag ? parseInt(batchFlag, 10) : null;
