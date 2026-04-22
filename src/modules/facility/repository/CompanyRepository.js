@@ -604,6 +604,14 @@ const getActiveSubsidiaries = async ({
                 as: 'country',
                 attributes: ['iso_currency', 'currency', 'currency_simbol']
             },
+            {
+                // Solo mostrar sucursales cuyo padre esté activo ───────────────
+                model: Company,
+                as: 'parentCompany',
+                required: true,
+                where: { status: 'ACTIVE', is_enabled: 'A' },
+                attributes: []
+            },
             spaceInclude,
             {
                 model: Media,
