@@ -1,6 +1,7 @@
-const PaymentAccountRepository = require('../repository/PaymentAccountRepository');
-const CompanyRepository = require('../repository/CompanyRepository');
-const MediaService = require('../../media/services/MediaService');
+const PaymentAccountRepository       = require('../repository/PaymentAccountRepository');
+const PaymentConfigurationRepository = require('../repository/PaymentConfigurationRepository');
+const CompanyRepository              = require('../repository/CompanyRepository');
+const MediaService                   = require('../../media/services/MediaService');
 const { BadRequestError, NotFoundError } = require('../../../shared/errors/CustomErrors');
 
 const ALLOWED_FIELDS = [
@@ -46,10 +47,38 @@ const createAccount = async (data, userId, files = {}) => {
     const sucursal = await CompanyRepository.findById(sucursal_id);
     if (!sucursal) throw new NotFoundError('La sucursal no existe');
 
+    /**
+     * Garantizar que exista un ConfigurationPayment para (sucursal, tipo) antes
+     * de crear la cuenta. Sin este registro la cuenta quedaía huérfana y nunca
+     * aparecería en el panel de métodos de pago (que carga cuentas vía el hasMany).
+     * findOrCreate evita duplicados gracias al unique index (sucursal_id, payment_type_id).
+     */
+    let configurationPaymentId = data.configuration_payment_id
+        ? Number(data.configuration_payment_id)
+        : null;
+
+    if (!configurationPaymentId) {
+        const [config] = await PaymentConfigurationRepository.findOrCreateBySucursalAndType(
+            sucursal_id,
+            payment_type_id,
+            {
+                tenant_id:   sucursal.tenant_id,
+                is_enabled:  true,
+                sort_order:  0,
+                is_default:  false,
+                user_create: userId,
+                user_update: userId,
+            }
+        );
+        configurationPaymentId = config.configuration_payment_id;
+    }
+
     const filteredData = {};
     ALLOWED_FIELDS.forEach(field => {
         if (data[field] !== undefined) filteredData[field] = data[field];
     });
+    // Siempre usar el ID resuelto arriba, ignorar el que pudiera venir en filteredData
+    filteredData.configuration_payment_id = configurationPaymentId;
 
     const account = await PaymentAccountRepository.create({
         sucursal_id,

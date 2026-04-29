@@ -67,6 +67,24 @@ const ubigeoUpdate = ubigeoCreate.fork(
     s => s.optional()
 );
 
+// ─── Ítem de menú ────────────────────────────────────────────────────────────
+const menuItemCreate = Joi.object({
+    key:                 Joi.string().min(1).max(50).pattern(/^[a-z0-9_-]+$/).required()
+                             .messages({ 'string.pattern.base': 'Solo se permiten minúsculas, números, guiones y guiones bajos' }),
+    label:               Joi.string().min(1).max(100).required(),
+    icon:                Joi.string().max(80).allow('', null).default(null),
+    path:                Joi.string().max(200).allow('', null).default(null),
+    parent_key:          Joi.string().max(50).allow('', null).default(null),
+    required_permission: Joi.string().max(100).allow('', null).default(null),
+    app_access:          Joi.string().valid('admin', 'booking', 'both').required(),
+    group_title:         Joi.string().max(50).allow('', null).default(null),
+    sort_order:          Joi.number().integer().min(0).default(0),
+});
+const menuItemUpdate = menuItemCreate.fork(
+    ['key', 'label', 'app_access'],
+    s => s.optional()
+);
+
 module.exports = {
     country:        { create: countryCreate,     update: countryUpdate },
     sportType:      { create: sportLike,         update: sportLikeUpdate },
@@ -74,4 +92,5 @@ module.exports = {
     surfaceType:    { create: sportLike,         update: sportLikeUpdate },
     paymentType:    { create: paymentTypeCreate, update: paymentTypeUpdate },
     ubigeo:         { create: ubigeoCreate,      update: ubigeoUpdate },
+    menuItem:       { create: menuItemCreate,    update: menuItemUpdate },
 };

@@ -69,6 +69,17 @@ class PaymentConfigurationRepository {
     }
 
     /**
+     * Busca o crea un ConfigurationPayment para (sucursal, tipo de pago).
+     * Retorna [instance, created].
+     */
+    static async findOrCreateBySucursalAndType(sucursalId, paymentTypeId, defaults) {
+        return await ConfigurationPayment.findOrCreate({
+            where:    { sucursal_id: sucursalId, payment_type_id: paymentTypeId },
+            defaults: { sucursal_id: sucursalId, payment_type_id: paymentTypeId, ...defaults },
+        });
+    }
+
+    /**
      * Actualiza el orden de los métodos de pago
      */
     static async updateOrders(sucursalId, orderedPayments, transaction) {

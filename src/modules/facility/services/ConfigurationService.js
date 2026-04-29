@@ -27,11 +27,22 @@ const getConfiguration = async (companyId, publicView = false) => {
 
     const configObj = config.toJSON();
 
-    // Logo desde Media (PROFILE)
-    const profileMedia = await MediaService.getPrimaryMedia(companyId, 'Company');
+    // Buscar logo (PROFILE) y banner (COVER) en paralelo ─────────────────────
+    const [profileList, coverList] = await Promise.all([
+        MediaService.getEntityMedia(companyId, 'Company', 'PROFILE'),
+        MediaService.getEntityMedia(companyId, 'Company', 'COVER'),
+    ]);
+
+    const profileMedia = profileList?.[0];
+    const coverMedia   = coverList?.[0];
+
     if (profileMedia) {
         configObj.logo_url      = profileMedia.file_url;
         configObj.logo_media_id = profileMedia.media_id;
+    }
+    if (coverMedia) {
+        configObj.banner_url      = coverMedia.file_url;
+        configObj.banner_media_id = coverMedia.media_id;
     }
 
     return configObj;

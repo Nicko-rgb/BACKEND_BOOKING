@@ -358,8 +358,17 @@ const findNearby = async (latitude, longitude, radiusKm = 10, transaction = null
 
 // Obtener detalles completos de una compañía o sucursal
 const getCompanyDetails = async (companyId, transaction = null) => {
+    // Subquery para promedio de calificaciones aprobadas ──────────────────────
+    const avgRatingLiteral = Company.sequelize.literal(`(
+        SELECT ROUND(AVG(score)::numeric, 1)
+        FROM dsg_bss_ratings
+        WHERE sucursal_id = "Company"."company_id"
+        AND status = 'aprobada'
+    )`);
+
     const options = {
         where: { company_id: companyId },
+        attributes: { include: [[avgRatingLiteral, 'avg_rating']] },
         include: [
             {
                 model: Country,
@@ -592,11 +601,20 @@ const getActiveSubsidiaries = async ({
         attributes: ['space_id', 'name']
     };
 
+    // Subquery para el promedio de calificaciones aprobadas de cada sucursal ────
+    const avgRatingLiteral = Company.sequelize.literal(`(
+        SELECT ROUND(AVG(score)::numeric, 1)
+        FROM dsg_bss_ratings
+        WHERE sucursal_id = "Company"."company_id"
+        AND status = 'aprobada'
+    )`);
+
     // Opciones de la query ─────────────────────────────────────────────────────
     const queryOptions = {
         where,
-        distinct: true,         // evita contar filas duplicadas por el JOIN de spaces ─
-        col: 'company_id',      // columna de referencia para el distinct count ────────
+        distinct: true,
+        col: 'company_id',
+        attributes: { include: [[avgRatingLiteral, 'avg_rating']] },
         include: [
             {
                 // Moneda e info del país donde opera la sucursal ───────────────

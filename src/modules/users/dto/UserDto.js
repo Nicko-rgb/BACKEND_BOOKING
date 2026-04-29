@@ -22,8 +22,9 @@ const createUserDto = Joi.object({
         'string.empty': 'El correo electrónico es obligatorio.',
         'any.required': 'El campo correo electrónico es obligatorio.'
     }),
-    phone: Joi.string().required().messages({
+    phone: Joi.string().max(20).required().messages({
         'string.empty': 'El teléfono es obligatorio.',
+        'string.max': 'El teléfono no puede superar los 20 caracteres.',
         'any.required': 'El campo teléfono es obligatorio.'
     }),
     code: Joi.string().required().messages({

@@ -72,7 +72,8 @@ app.use(cors({
  */
 const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 200,
+    // En desarrollo subimos el límite para no bloquearnos con hot-reload y StrictMode
+    max: process.env.NODE_ENV === 'production' ? 200 : 2000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Demasiadas solicitudes desde esta IP, intenta en 15 minutos.' }

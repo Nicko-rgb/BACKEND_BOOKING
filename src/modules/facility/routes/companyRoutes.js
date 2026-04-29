@@ -6,9 +6,12 @@
 const express = require('express');
 const router = express.Router();
 
-const { validateQuery } = require('../../../shared/middlewares/validateDTO');
+const { validateDTO, validateQuery } = require('../../../shared/middlewares/validateDTO');
 const { queryParamsSchema, publicSucursalQueryDto } = require('../dto/CompanyDto');
+const { createRatingDto } = require('../dto/RatingDto');
 const { protegerPermiso, protegerPermisoConScope } = require('../../../shared/middlewares/proteger');
+const { verificarTokenAuth } = require('../../../shared/middlewares/verificarTokenAuth');
+const { verificarTokenOptional } = require('../../../shared/middlewares/verificarTokenOptional');
 const GlobalErrorHandler = require('../../../shared/handlers/GlobalErrorHandler');
 const upload = require('../../../shared/middlewares/uploadMiddleware');
 
@@ -22,6 +25,9 @@ const {
     getPublicSucursales,
     getPublicSucursal,
 } = require('../controllers/CompanyController');
+
+const { getApprovedRatings, createRating } = require('../controllers/RatingController');
+const { toggleFavorite } = require('../controllers/FavoriteController');
 
 // ── Gestión de empresas y sucursales (admin) ──────────────────────────────────
 
@@ -67,6 +73,27 @@ router.put(
 // ── Portal de Reservas — sucursales públicas ──────────────────────────────────
 
 router.get('/public/subsidiaries', validateQuery(publicSucursalQueryDto), GlobalErrorHandler.asyncHandler(getPublicSucursales));
-router.get('/public/subsidiaries/:id', GlobalErrorHandler.asyncHandler(getPublicSucursal));
+
+// verificarTokenOptional: enriquece con is_favorited si el usuario está autenticado ──
+router.get('/public/subsidiaries/:id', verificarTokenOptional, GlobalErrorHandler.asyncHandler(getPublicSucursal));
+
+// ── Reseñas de sucursal ───────────────────────────────────────────────────────
+
+router.get('/public/subsidiaries/:id/ratings', GlobalErrorHandler.asyncHandler(getApprovedRatings));
+
+router.post(
+    '/public/subsidiaries/:id/ratings',
+    verificarTokenAuth,
+    validateDTO(createRatingDto),
+    GlobalErrorHandler.asyncHandler(createRating)
+);
+
+// ── Favoritos de sucursal ─────────────────────────────────────────────────────
+
+router.post(
+    '/public/subsidiaries/:id/favorites/toggle',
+    verificarTokenAuth,
+    GlobalErrorHandler.asyncHandler(toggleFavorite)
+);
 
 module.exports = router;

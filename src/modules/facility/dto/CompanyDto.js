@@ -693,7 +693,9 @@ class CompanyDto {
                 latitude: data.latitude,
                 longitude: data.longitude,
                 // Distancia calculada por Haversine (null si no hay coords) ──
-                distance_km
+                distance_km,
+                // Promedio de calificaciones aprobadas ────────────────────────
+                rating: data.avg_rating != null ? Number(data.avg_rating) : 0
             };
         });
     }
@@ -714,6 +716,8 @@ class CompanyDto {
             latitude: data.latitude,
             longitude: data.longitude,
             min_price: data.min_price,
+            // Promedio de calificaciones aprobadas ────────────────────────────
+            rating: data.avg_rating != null ? Number(data.avg_rating) : 0,
             // Moneda del país donde opera la sucursal ────────────────────────
             currency_simbol: data.country?.currency_simbol ?? null,
             iso_currency: data.country?.iso_currency ?? null,

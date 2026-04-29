@@ -15,7 +15,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { Country, SportType, SportCategory, SurfaceType, PaymentType, Ubigeo } = require('../models');
+const { Country, SportType, SportCategory, SurfaceType, PaymentType, Ubigeo, MenuItem } = require('../models');
 const { protegerPermiso } = require('../../../shared/middlewares/proteger');
 const { validateDTO } = require('../../../shared/middlewares/validateDTO');
 const GlobalErrorHandler = require('../../../shared/handlers/GlobalErrorHandler');
@@ -157,6 +157,19 @@ registerCatalogRoutes('ubigeo', 'ubigeo.manage', schemas.ubigeo, {
             throw new ConflictError('No se puede eliminar un ubigeo con niveles geográficos hijos');
         }
     }
+});
+
+// ── Ítems de menú ────────────────────────────────────────────────────────────
+registerCatalogRoutes('menu-items', 'menu.manage', schemas.menuItem, {
+    model: MenuItem,
+    pkField: 'menu_id',
+    entityLabel: 'ítem de menú',
+    entityLabelPlural: 'ítems de menú',
+    uniqueFields: ['key'],
+    searchableFields: ['key', 'label', 'path'],
+    filterFields: ['app_access', 'group_title'],
+    activeField: 'is_active',
+    defaultOrder: [['group_title', 'ASC'], ['sort_order', 'ASC']],
 });
 
 module.exports = router;

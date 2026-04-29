@@ -50,7 +50,9 @@ const getPublicSucursales = async (req, res, next) => {
 
 const getPublicSucursal = async (req, res, next) => {
     const { id } = req.params;
-    await CompanyHandler.getPublicSucursal(res, id);
+    // req.user puede ser null (verificarTokenOptional) — se pasa para is_favorited ──
+    const userId = req.user?.user_id ?? null;
+    await CompanyHandler.getPublicSucursal(res, id, userId);
 };
 
 const getPaymentMethods = async (req, res, next) => {

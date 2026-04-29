@@ -1,4 +1,5 @@
 const CompanyService = require('../services/CompanyService');
+const FavoriteService = require('../services/FavoriteService');
 const { CompanyDto } = require('../dto/CompanyDto');
 const ApiResponse = require('../../../shared/utils/ApiResponse');
 
@@ -69,14 +70,22 @@ const getPublicSucursales = async (res, filters = {}) => {
     );
 };
 
-// Datos de una sucursal para reserva para la app de BOOKING SPORT
-const getPublicSucursal = async (res, id) => {
-    const sucursal = await CompanyService.getCompanyDetails(id); // Reutilizamos detalles
-    // Verifcamos si está activa
+/**
+ * Datos de una sucursal para reserva (Portal BOOKING SPORT).
+ * Enriquece la respuesta con favorites_count e is_favorited.
+ * @param {number|null} userId — null si el usuario no está autenticado
+ */
+const getPublicSucursal = async (res, id, userId = null) => {
+    const sucursal = await CompanyService.getCompanyDetails(id);
     if (sucursal.is_enabled !== 'A') {
         return ApiResponse.error(null, res, 'NOT_FOUND', 'Sucursal inactiva o no encontrada.', null, 404);
     }
-    const response = CompanyDto.toResponseBSData(sucursal);
+    // Agregar datos de favoritos (count siempre, is_favorited solo si hay sesión) ──
+    const favoriteData = await FavoriteService.getFavoriteStatus(userId, id);
+    const response = {
+        ...CompanyDto.toResponseBSData(sucursal),
+        ...favoriteData
+    };
     return ApiResponse.ok(res, response, 'Información de la sucursal para reserva.');
 };
 

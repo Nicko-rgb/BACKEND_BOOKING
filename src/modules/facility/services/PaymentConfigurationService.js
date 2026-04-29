@@ -27,15 +27,17 @@ const saveActivePayments = async (sucursalId, paymentMethods, userId) => {
             .map(c => c.payment_type_id)
             .filter(id => !paymentTypeIds.includes(id));
 
-        // 2. Eliminar cuentas de pago y sus archivos QR para los tipos removidos
+        /**
+         * Desactivar cuentas de pago de los tipos removidos (soft-delete).
+         * Se usa is_active=false en lugar de destroy() para no perder datos si el
+         * administrador re-agrega el mismo tipo de pago en el futuro.
+         * Las imágenes QR se conservan; si el tipo se reactiva las cuentas pueden
+         * reactivarse también.
+         */
         for (const typeId of removedTypeIds) {
             const accounts = await PaymentAccountRepository.findBySucursalAndType(sucursalId, typeId);
             for (const account of accounts) {
-                const mediaList = await MediaService.getEntityMedia(account.payment_account_id, 'PaymentAccount', 'THUMBNAIL');
-                for (const media of mediaList) {
-                    await MediaService.deleteMedia(media.media_id);
-                }
-                await account.destroy();
+                await account.update({ is_active: false });
             }
         }
 
