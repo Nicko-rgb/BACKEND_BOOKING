@@ -127,9 +127,9 @@ NODE_ENV=production
 JWT_SECRET=tu_jwt_secret_seguro
 JWT_EXPIRES=12h
 
-# CORS — apuntar al dominio del frontend
+# CORS — frontends permitidos separados por coma
 FRONTEND_URL=https://www.redepor.com
-CORS_ORIGIN=https://www.redepor.com,https://redepor.com
+CORS_ORIGIN=https://www.redepor.com,https://redepor.com,https://administrator-booking.vercel.app
 
 # Redis — deshabilitado por ahora
 REDIS_ENABLED=false
@@ -183,6 +183,8 @@ server {
     server_name api.redepor.com;
 
     location / {
+        client_max_body_size 50m;   # igual al límite de multer en uploadMiddleware.js
+
         proxy_pass http://localhost:5010;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
