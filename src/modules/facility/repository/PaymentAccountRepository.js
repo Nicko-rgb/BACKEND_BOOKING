@@ -10,11 +10,24 @@ class PaymentAccountRepository {
         });
     }
 
-    static async findBySucursalAndType(sucursalId, paymentTypeId) {
+    static async findBySucursalAndType(sucursalId, paymentTypeId, onlyActive = true) {
+        const where = { sucursal_id: sucursalId, payment_type_id: paymentTypeId };
+        if (onlyActive) where.is_active = true;
+        
         return await PaymentAccount.findAll({
-            where: { sucursal_id: sucursalId, payment_type_id: paymentTypeId, is_active: true },
+            where,
             order: [['sort_order', 'ASC']]
         });
+    }
+
+    static async reactivateBySucursalAndType(sucursalId, paymentTypeId, transaction) {
+        return await PaymentAccount.update(
+            { is_active: true },
+            { 
+                where: { sucursal_id: sucursalId, payment_type_id: paymentTypeId, is_active: false },
+                transaction
+            }
+        );
     }
 
     static async findById(id) {

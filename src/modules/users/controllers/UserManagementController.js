@@ -42,6 +42,12 @@ const getUserDetail = async (req, res) => {
     await UserManagementHandler.getUserDetail(res, Number(userId));
 };
 
+// GET /api/users/profile
+const getProfile = async (req, res) => {
+    const userId = req.user.user_id;
+    await UserManagementHandler.getProfile(res, userId);
+};
+
 // PUT /api/users/:userId/permissions
 const setUserDirectPermissions = async (req, res) => {
     const { userId } = req.params;
@@ -73,6 +79,7 @@ module.exports = {
     updatePermission,
     getUsers,
     getUserDetail,
+    getProfile,
     setUserDirectPermissions,
     getMenu,
     assignOwner,

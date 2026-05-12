@@ -510,13 +510,20 @@ const updateStaffUser = async (userId, data) => {
     const user = await User.findByPk(userId);
     if (!user) return null;
 
-    const { phone, document_type, document_number, country_id, address, date_birth, ...userFields } = data;
+    const {
+        phone, document_type, document_number, country_id, address, date_birth,
+        gender, occupation, civil_state, sports_preferences,
+        ...userFields
+    } = data;
 
     if (Object.keys(userFields).length > 0) {
         await user.update(userFields);
     }
 
-    const personData    = { phone, document_type, document_number, country_id, address, date_birth };
+    const personData = {
+        phone, document_type, document_number, country_id, address, date_birth,
+        gender, occupation, civil_state, sports_preferences
+    };
     const hasPersonData = Object.values(personData).some(v => v !== undefined);
 
     if (hasPersonData) {

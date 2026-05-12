@@ -27,11 +27,18 @@ const {
     updatePermission,
     getUsers,
     getUserDetail,
+    getProfile,
     setUserDirectPermissions,
     getMenu,
     assignOwner,
     toggleUserStatus,
 } = require('../controllers/UserManagementController');
+
+// ── Perfil del usuario autenticado ───────────────────────────────────────────
+router.get('/profile',
+    verificarTokenAuth,
+    GlobalErrorHandler.asyncHandler(getProfile)
+);
 
 // ── Menú dinámico — cualquier usuario admin autenticado puede acceder ─────────
 router.get('/menu',

@@ -19,26 +19,32 @@ const saveActivePayments = async (sucursalId, paymentMethods, userId) => {
     const transaction = await sequelize.transaction();
 
     try {
-        const paymentTypeIds = paymentMethods.map(p => p.payment_type_id);
+        const paymentTypeIds = paymentMethods.map(p => Number(p.payment_type_id));
 
-        // 1. Encontrar los tipos que se eliminarán para poder borrar sus cuentas de pago
+        // 1. Encontrar los tipos que se eliminarán para desactivar sus cuentas de pago
         const currentConfigs = await PaymentConfigurationRepository.findBySucursalId(sucursalId);
         const removedTypeIds = currentConfigs
-            .map(c => c.payment_type_id)
+            .map(c => Number(c.payment_type_id))
             .filter(id => !paymentTypeIds.includes(id));
 
         /**
          * Desactivar cuentas de pago de los tipos removidos (soft-delete).
          * Se usa is_active=false en lugar de destroy() para no perder datos si el
          * administrador re-agrega el mismo tipo de pago en el futuro.
-         * Las imágenes QR se conservan; si el tipo se reactiva las cuentas pueden
-         * reactivarse también.
          */
         for (const typeId of removedTypeIds) {
             const accounts = await PaymentAccountRepository.findBySucursalAndType(sucursalId, typeId);
             for (const account of accounts) {
-                await account.update({ is_active: false });
+                await account.update({ is_active: false }, { transaction });
             }
+        }
+
+        /**
+         * 2. Reactivar cuentas de pago de los tipos que están activos/re-agregados.
+         * Si un administrador re-conecta un método que tenía cuentas, estas vuelven a aparecer.
+         */
+        for (const typeId of paymentTypeIds) {
+            await PaymentAccountRepository.reactivateBySucursalAndType(sucursalId, typeId, transaction);
         }
 
         // 3. Eliminar los ConfigurationPayment que ya no están seleccionados

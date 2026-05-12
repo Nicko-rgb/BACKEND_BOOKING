@@ -251,6 +251,60 @@ const findUserById = async (userId) => {
     return formatUser(user);
 };
 
+/**
+ * Busca el perfil completo del usuario autenticado (User + Person completo).
+ * @param {number} userId
+ * @returns {Object|null}
+ */
+const findUserProfile = async (userId) => {
+    const user = await User.findByPk(userId, {
+        include: [
+            {
+                model: Person,
+                as: 'person',
+                required: false,
+                include: [{ model: Country, as: 'country', attributes: ['country', 'flag_url'], required: false }],
+            },
+            {
+                model: UserCompany,
+                as: 'companyAssignments',
+                where: { is_active: true },
+                required: false,
+                include: [{ model: Company, as: 'company', attributes: ['company_id', 'name', 'parent_company_id'] }],
+            },
+            {
+                model: UserPermission,
+                as: 'directPermissions',
+                attributes: ['permission_key'],
+                required: false,
+            },
+        ],
+    });
+
+    if (!user) return null;
+
+    const u = user.toJSON();
+    delete u.password;
+    delete u.social_id;
+
+    return {
+        ...u,
+        phone: u.person?.phone || null,
+        country: u.person?.country
+            ? { name: u.person.country.country, flag: u.person.country.flag_url }
+            : null,
+        companyAssignments: (u.companyAssignments || []).map(ca => ({
+            user_company_id: ca.user_company_id,
+            company_id:      ca.company_id,
+            company_name:    ca.company?.name,
+            is_subsidiary:   !!ca.company?.parent_company_id,
+            role:            ca.role || null,
+            is_active:       ca.is_active,
+        })),
+        directPermissions: (u.directPermissions || []).map(p => p.permission_key),
+    };
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // USER PERMISSIONS (directos)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -342,6 +396,7 @@ module.exports = {
     updatePermission,
     findUsers,
     findUserById,
+    findUserProfile,
     setUserDirectPermissions,
     findMenuForUser,
     findOwnerByCompany,

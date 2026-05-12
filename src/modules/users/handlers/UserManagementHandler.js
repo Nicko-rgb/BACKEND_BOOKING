@@ -39,6 +39,11 @@ const getUserDetail = async (res, userId) => {
     return ApiResponse.ok(res, user, 'Detalle del usuario');
 };
 
+const getProfile = async (res, userId) => {
+    const user = await UserManagementService.getUserProfile(userId);
+    return ApiResponse.ok(res, user, 'Perfil del usuario');
+};
+
 // ── Permisos directos de usuario ──────────────────────────────────────────────
 
 const setUserDirectPermissions = async (res, userId, permissionKeys, requestingUser) => {
@@ -77,6 +82,7 @@ module.exports = {
     updatePermission,
     getUsers,
     getUserDetail,
+    getProfile,
     setUserDirectPermissions,
     getMenu,
     assignOwner,

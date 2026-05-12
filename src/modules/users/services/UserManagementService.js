@@ -103,6 +103,17 @@ const getUserDetail = async (userId) => {
     return user;
 };
 
+/**
+ * Devuelve el perfil completo del usuario autenticado.
+ * @param {number} userId
+ * @returns {Object}
+ */
+const getUserProfile = async (userId) => {
+    const user = await UserManagementRepository.findUserProfile(userId);
+    if (!user) throw new NotFoundError(`Usuario con ID ${userId} no encontrado`);
+    return user;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // USER PERMISSIONS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -252,6 +263,7 @@ module.exports = {
     updatePermission,
     getUsers,
     getUserDetail,
+    getUserProfile,
     setUserDirectPermissions,
     getMenuForUser,
     assignOwnerToCompany,
