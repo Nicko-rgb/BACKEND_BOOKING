@@ -94,12 +94,6 @@ const PaymentType = sequelize.define('PaymentType', {
         type: DataTypes.JSON,
         allowNull: true,
         comment: 'Configuración específica de la API del proveedor (JSON)'
-    },
-    created_at: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW,
-        comment: 'Fecha de creación del registro'
     }
 }, {
     tableName: 'dsg_bss_payment_types',

@@ -246,16 +246,23 @@ class BookingRepository {
     }
 
     /**
-     * Retorna los holds activos de un usuario y los elimina físicamente (hard delete)
-     * También es usado por el job de expiración para obtener la lista antes de borrar
+     * Retorna los holds activos de un usuario y los elimina físicamente (hard delete).
+     * También es usado por el job de expiración para obtener la lista antes de borrar.
+     *
+     * @param {number} user_id - ID del usuario
+     * @param {import('sequelize').Transaction|null} transaction - Si se pasa, la
+     *   eliminación participa de la transacción y se revierte si hay rollback.
      */
-    async getAndDeleteUserHolds(user_id) {
+    async getAndDeleteUserHolds(user_id, transaction = null) {
+        const opts = transaction ? { transaction } : {};
+
         const activeHolds = await BookingHold.findAll({
-            where: { user_id, status: 'ACTIVE' }
+            where: { user_id, status: 'ACTIVE' },
+            ...opts
         });
 
         if (activeHolds.length > 0) {
-            await BookingHold.destroy({ where: { user_id } });
+            await BookingHold.destroy({ where: { user_id }, ...opts });
         }
 
         return activeHolds;

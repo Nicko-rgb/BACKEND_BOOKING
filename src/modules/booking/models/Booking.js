@@ -117,11 +117,6 @@ const Booking = sequelize.define('Booking', {
         type: DataTypes.DATE,
         allowNull: true,
         comment: 'Fecha y hora de aprobación de la reserva presencial'
-    },
-    created_at: {
-        type: DataTypes.DATE,
-        defaultValue: DataTypes.NOW,
-        comment: 'Fecha de creación de la reserva'
     }
 }, {
     tableName: 'dsg_bss_booking',

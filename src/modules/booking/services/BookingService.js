@@ -211,7 +211,9 @@ class BookingService {
             const paymentMethod = ['CASH'].includes(effectivePaymentCode) ? 'IN_PERSON' : 'ONLINE';
 
             // ── FASE 7: Limpiar holds del usuario y crear Bookings ───────────────────
-            const releasedHolds = await BookingRepository.getAndDeleteUserHolds(user_id);
+            // IMPORTANTE: pasamos la transacción para que, si algo falla después,
+            // el rollback restaure los holds y el usuario pueda reintentar.
+            const releasedHolds = await BookingRepository.getAndDeleteUserHolds(user_id, transaction);
 
             const createdBookings = [];
             for (const bookingData of bookingsToProcess) {
