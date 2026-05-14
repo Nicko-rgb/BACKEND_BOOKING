@@ -30,6 +30,13 @@ const getAllUsers = async (req, res) => {
     await userHandler.getAllUsersHandler(res, filters);
 };
 
+const searchClients = async (req, res) => {
+    const filters = req.validatedQuery || req.query;
+    // Forzamos el rol a 'cliente' para garantizar que solo busquen clientes
+    const clientFilters = { ...filters, role: 'cliente' };
+    await userHandler.getAllUsersHandler(res, clientFilters);
+};
+
 const registerAdminUser = async (req, res) => {
     const userData = req.validatedData || req.body;
     await userHandler.registerAdminUserHandler(res, userData, req);
@@ -68,6 +75,7 @@ module.exports = {
     loginAdmin,
     socialLogin,
     getAllUsers,
+    searchClients,
     registerAdminUser,
     getUsersByCompany,
     getTenantStaff,

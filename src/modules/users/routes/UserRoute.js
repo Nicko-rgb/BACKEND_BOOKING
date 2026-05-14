@@ -12,6 +12,7 @@ const {
     loginAdmin,
     socialLogin,
     getAllUsers,
+    searchClients,
     registerAdminUser,
     getUsersByCompany,
     getTenantStaff,
@@ -64,6 +65,17 @@ router.get(
     '/get-all-users',
     ...protegerPermiso('user.manage_all'),
     GlobalErrorHandler.asyncHandler(getAllUsers)
+);
+
+/**
+ * @route GET /api/users/search-clients
+ * @desc Busca usuarios con rol cliente para la creación de reservas
+ * @access Autenticado (system, super_admin, administrador, empleado)
+ */
+router.get(
+    '/search-clients',
+    verificarTokenAuth,
+    GlobalErrorHandler.asyncHandler(searchClients)
 );
 
 /**
