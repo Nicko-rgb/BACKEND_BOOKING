@@ -131,7 +131,7 @@ registerCatalogRoutes('payment-types', 'payment_type.manage', schemas.paymentTyp
     searchableFields: ['name', 'code', 'provider'],
     filterFields: ['country_id', 'category'],
     activeField: 'is_enabled',
-    include: [{ model: Country, as: 'country', attributes: ['country_id', 'country', 'iso_country', 'currency_simbol'] }],
+    include: [{ model: Country, as: 'country', attributes: ['country_id', 'country', 'iso_country', 'currency_simbol', 'flag_url'] }],
     defaultOrder: [['country_id', 'ASC'], ['name', 'ASC']],
     checkReferences: async (paymentType) => {
         const payments = await paymentType.countPayments();
