@@ -763,6 +763,28 @@ class CompanyDto {
             })) : []
         };
     }
+
+    /**
+     * Data transfer para devolver solo los datos esenciales de un pin en el mapa
+     */
+    static toResponseMapPins(sucursales) {
+        if (!sucursales) return [];
+        const arr = Array.isArray(sucursales) ? sucursales : [sucursales];
+        
+        return arr.map(s => {
+            const data = s.get ? s.get({ plain: true }) : s;
+            return {
+                sucursal_id: data.company_id,
+                name: data.name,
+                latitude: data.latitude,
+                longitude: data.longitude,
+                min_price: data.min_price || 0,
+                currency_simbol: data.country?.currency_simbol || 'S/',
+                rating: data.avg_rating != null ? Number(data.avg_rating) : 0,
+                primary_photo: data.media?.find(m => m.is_primary)?.file_url || data.media?.[0]?.file_url || null,
+            };
+        });
+    }
 }
 
 /**
@@ -773,12 +795,12 @@ const publicSucursalQueryDto = Joi.object({
     // Coordenadas GPS del usuario — activa ordenamiento Haversine ─────────────
     lat: Joi.number().min(-90).max(90),
     lng: Joi.number().min(-180).max(180),
-    radius_km: Joi.number().positive().max(500).default(50),
     // País del usuario — SIEMPRE enviado desde el frontend ────────────────────
     iso_country: Joi.string().min(2).max(3).uppercase(),
-    // Fallback geográfico cuando no hay GPS (nivel 1=dept, 2=prov, 3=dist) ────
-    ubigeo_name: Joi.string().max(100),
-    ubigeo_level: Joi.number().integer().valid(1, 2, 3),
+    // Fallback geográfico: Recibir todos los niveles para búsqueda resiliente ─
+    ubigeo_level1: Joi.string().max(100).allow(''),
+    ubigeo_level2: Joi.string().max(100).allow(''),
+    ubigeo_level3: Joi.string().max(100).allow(''),
     // Filtros de contenido ─────────────────────────────────────────────────────
     search: Joi.string().max(100).allow('').default(''),
     sport: Joi.string().max(50).allow(''),
@@ -791,10 +813,29 @@ const publicSucursalQueryDto = Joi.object({
     limit: Joi.number().integer().min(1).max(500).default(12),
 });
 
+/**
+ * Schema de validación para query params del endpoint público de mapa (BBOX).
+ * Requiere los límites del mapa y soporta filtros de contenido ligeros.
+ */
+const mapPinsQueryDto = Joi.object({
+    // Límites de la caja (Bounding Box) ───────────────────────────────────────
+    min_lat: Joi.number().min(-90).max(90).required(),
+    max_lat: Joi.number().min(-90).max(90).required(),
+    min_lng: Joi.number().min(-180).max(180).required(),
+    max_lng: Joi.number().min(-180).max(180).required(),
+    // País del usuario ────────────────────────────────────────────────────────
+    iso_country: Joi.string().min(2).max(3).uppercase().required(),
+    // Filtros de contenido ─────────────────────────────────────────────────────
+    search: Joi.string().max(100).allow('').default(''),
+    sport: Joi.string().max(50).allow(''),
+    limit: Joi.number().integer().min(1).max(1000).default(500),
+});
+
 module.exports = {
     CompanyDto,
     createCompanyDto,
     updateCompanyDto,
     queryParamsSchema,
-    publicSucursalQueryDto
+    publicSucursalQueryDto,
+    mapPinsQueryDto
 };

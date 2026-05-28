@@ -222,21 +222,7 @@ const haversineKm = (lat1, lng1, lat2, lng2) => {
  *   limit                — items por página
  * @returns {{ items: object[], meta: { total, page, limit, totalPages } }}
  */
-const getPublicSucursales = async ({
-    lat,
-    lng,
-    radius_km = 50,
-    iso_country,
-    ubigeo_name,
-    ubigeo_level,
-    search,
-    sport,
-    parking,
-    open_now,
-    sort_by = 'distance',
-    page = 1,
-    limit = 12
-} = {}) => {
+const getPublicSucursales = async ({ lat, lng, iso_country, ubigeo_level1, ubigeo_level2, ubigeo_level3, search, sport, parking, open_now, sort_by = 'distance', page = 1, limit = 12 } = {}) => {
     const userLat = lat != null ? parseFloat(lat) : null;
     const userLng = lng != null ? parseFloat(lng) : null;
     const hasCoords = userLat != null && userLng != null;
@@ -250,15 +236,25 @@ const getPublicSucursales = async ({
         country_id = country?.country_id ?? null;
     }
 
-    // 2. Resolver ubigeo_name + ubigeo_level → ubigeo_id ──────────────────────
-    let ubigeo_id = null;
-    if (ubigeo_name && ubigeo_level) {
-        const ubigeo = await CompanyRepository.findUbigeoByNameAndLevel(ubigeo_name, ubigeo_level);
-        ubigeo_id = ubigeo?.ubigeo_id ?? null;
+    // 2. Resolver ubigeo con Fallback (Intenta 3 -> 2 -> 1) ───────────────────
+    let ubigeo_code = null;
+    if (ubigeo_level3) {
+        const ubigeo3 = await CompanyRepository.findUbigeoByNameAndLevel(ubigeo_level3, 3);
+        if (ubigeo3) ubigeo_code = ubigeo3.code;
+    }
+    
+    if (!ubigeo_code && ubigeo_level2) {
+        const ubigeo2 = await CompanyRepository.findUbigeoByNameAndLevel(ubigeo_level2, 2);
+        if (ubigeo2) ubigeo_code = ubigeo2.code;
+    }
+
+    if (!ubigeo_code && ubigeo_level1) {
+        const ubigeo1 = await CompanyRepository.findUbigeoByNameAndLevel(ubigeo_level1, 1);
+        if (ubigeo1) ubigeo_code = ubigeo1.code;
     }
 
     // 3. Parámetros comunes del Repository ─────────────────────────────────────
-    const repoParams = { country_id, ubigeo_id, search, sport, parking, open_now, sort_by };
+    const repoParams = { country_id, ubigeo_code, search, sport, parking, open_now, sort_by };
 
     let items;
     let total;
@@ -267,7 +263,7 @@ const getPublicSucursales = async ({
     let fallbackToCountry = false;
 
     if (hasCoords) {
-        // Con coordenadas: traer todo sin paginación DB para poder filtrar por radio ────
+        // Con coordenadas: traer todo sin paginación DB para calcular distancia ────
         const { rows } = await CompanyRepository.getActiveSubsidiaries({
             ...repoParams,
             limit: null,
@@ -277,19 +273,6 @@ const getPublicSucursales = async ({
         // Enriquecer con distancia Haversine ───────────────────────────────────
         let enriched = rows.map(s => mapSucursal(s, userLat, userLng));
 
-        // Filtrar por radio ────────────────────────────────────────────────────
-        const withinRadius = enriched.filter(
-            s => s._distance_km == null || s._distance_km <= parseFloat(radius_km)
-        );
-
-        // Fallback: si el radio no devuelve resultados, mostrar todo el país ──
-        if (withinRadius.length === 0 && enriched.length > 0) {
-            fallbackToCountry = true;
-        }
-
-        // Usar resultados del radio o fallback al país completo ───────────────
-        enriched = fallbackToCountry ? enriched : withinRadius;
-
         // Aplicar ordenamiento en memoria según sort_by ───────────────────────
         if (sort_by === 'price_asc') {
             enriched.sort((a, b) => (parseFloat(a.min_price) || 0) - (parseFloat(b.min_price) || 0));
@@ -298,7 +281,7 @@ const getPublicSucursales = async ({
         } else if (sort_by === 'name') {
             enriched.sort((a, b) => a.name.localeCompare(b.name));
         } else {
-            // default: distance — más cercano primero aunque sea fallback ─────
+            // default: distance — más cercano primero ─────
             enriched.sort((a, b) => (a._distance_km ?? Infinity) - (b._distance_km ?? Infinity));
         }
 
@@ -430,6 +413,39 @@ const getSubsidiaryForAdmin = async (subsidiaryId, requestingUser) => {
     return company;
 };
 
+/**
+ * Servicio para cargar pines del mapa por Bounding Box
+ */
+const getMapPins = async ({
+    min_lat,
+    max_lat,
+    min_lng,
+    max_lng,
+    iso_country,
+    search,
+    sport,
+    limit = 500
+}) => {
+    let country_id = null;
+    if (iso_country) {
+        const country = await CompanyRepository.findCountryByIso(iso_country);
+        country_id = country?.country_id ?? null;
+    }
+
+    const items = await CompanyRepository.getMapPins({
+        min_lat: parseFloat(min_lat),
+        max_lat: parseFloat(max_lat),
+        min_lng: parseFloat(min_lng),
+        max_lng: parseFloat(max_lng),
+        country_id,
+        search,
+        sport,
+        limit: parseInt(limit, 10)
+    });
+
+    return items;
+};
+
 module.exports = {
     registerCompany,
     getAllCompanies,
@@ -439,5 +455,6 @@ module.exports = {
     updateCompany,
     toggleCompanyEnabled,
     getPublicSucursales,
+    getMapPins,
     getPaymentMethods
 };

@@ -47,7 +47,7 @@ require('dotenv').config();
 const app = express();
 const server = http.createServer(app);
 
-const corsOrigins = process.env.CORS_ORIGIN || 'http://localhost:3000';
+const corsOrigins = process.env.CORS_ORIGIN;
 const origins = corsOrigins.split(',').map(origin => origin.trim());
 const isDev = process.env.NODE_ENV === 'development';
 

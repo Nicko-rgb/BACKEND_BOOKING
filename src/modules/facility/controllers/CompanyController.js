@@ -43,9 +43,14 @@ const toggleCompanyEnabled = async (req, res, next) => {
 // --- Portal BOOKING SPORT ---
 
 const getPublicSucursales = async (req, res, next) => {
-    // Extraer filtros validados del query: lat, lng, radius_km, country_id, search
+    // Extraer filtros validados del query: lat, lng, country_id, search
     const filters = req.validatedQuery || {};
     await CompanyHandler.getPublicSucursales(res, filters);
+};
+
+const getMapPins = async (req, res, next) => {
+    const filters = req.validatedQuery || {};
+    await CompanyHandler.getMapPins(res, filters);
 };
 
 const getPublicSucursal = async (req, res, next) => {
@@ -68,6 +73,7 @@ module.exports = {
     updateCompany,
     toggleCompanyEnabled,
     getPublicSucursales,
+    getMapPins,
     getPublicSucursal,
     getPaymentMethods
 };

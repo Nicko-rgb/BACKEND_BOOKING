@@ -18,7 +18,10 @@ const {
     getTenantStaff,
     getStaffOverview,
     updateStaffUser,
-    logout
+    logout,
+    changePassword,
+    forgotPassword,
+    resetPassword
 } = require('../controllers/UserController');
 
 /**
@@ -55,6 +58,31 @@ router.post('/social-login', GlobalErrorHandler.asyncHandler(socialLogin));
  * @access Privado — cualquier usuario autenticado
  */
 router.post('/logout', verificarTokenAuth, GlobalErrorHandler.asyncHandler(logout));
+
+// ─── Gestión de Contraseñas ───────────────────────────────────────────────────
+
+/**
+ * @route PUT /api/users/change-password
+ * @desc Cambia la contraseña validando la contraseña actual
+ * @access Privado — usuario autenticado
+ */
+router.put('/change-password', verificarTokenAuth, GlobalErrorHandler.asyncHandler(changePassword));
+
+/**
+ * @route POST /api/users/forgot-password
+ * @desc Solicita recuperación de contraseña por correo
+ * @access Público
+ */
+router.post('/forgot-password', GlobalErrorHandler.asyncHandler(forgotPassword));
+
+/**
+ * @route POST /api/users/reset-password
+ * @desc Restablece la contraseña usando token
+ * @access Público
+ */
+router.post('/reset-password', GlobalErrorHandler.asyncHandler(resetPassword));
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * @route GET /api/users/get-all-users

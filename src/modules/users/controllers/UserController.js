@@ -69,6 +69,20 @@ const logout = async (req, res) => {
     await userHandler.logoutHandler(res, token);
 };
 
+// ─── Gestión de Contraseñas ───────────────────────────────────────────────────
+
+const changePassword = async (req, res) => {
+    await userHandler.changePasswordHandler(res, req);
+};
+
+const forgotPassword = async (req, res) => {
+    await userHandler.forgotPasswordHandler(res, req);
+};
+
+const resetPassword = async (req, res) => {
+    await userHandler.resetPasswordHandler(res, req);
+};
+
 module.exports = {
     createUser,
     loginUser,
@@ -81,5 +95,8 @@ module.exports = {
     getTenantStaff,
     getStaffOverview,
     updateStaffUser,
-    logout
+    logout,
+    changePassword,
+    forgotPassword,
+    resetPassword
 };

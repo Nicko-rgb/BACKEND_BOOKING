@@ -541,7 +541,7 @@ const getCompanyDetails = async (companyId, transaction = null) => {
  */
 const getActiveSubsidiaries = async ({
     country_id,
-    ubigeo_id,
+    ubigeo_code,
     search,
     sport,
     parking,
@@ -559,9 +559,6 @@ const getActiveSubsidiaries = async ({
 
     // Filtro por país ───────────────────────────────────────────────────────────
     if (country_id) where.country_id = country_id;
-
-    // Filtro por zona geográfica (ubigeo resuelto en el Service) ───────────────
-    if (ubigeo_id) where.ubigeo_id = ubigeo_id;
 
     // Búsqueda por nombre de sucursal (case-insensitive) ───────────────────────
     if (search) where.name = { [Op.iLike]: `%${search}%` };
@@ -614,6 +611,7 @@ const getActiveSubsidiaries = async ({
         where,
         distinct: true,
         col: 'company_id',
+        subQuery: false, // Previene error "missing FROM-clause" con limit + joins filtrados
         attributes: { include: [[avgRatingLiteral, 'avg_rating']] },
         include: [
             {
@@ -643,7 +641,16 @@ const getActiveSubsidiaries = async ({
                 as: 'configuration',
                 required: false,
                 attributes: ['config_id', 'social_whatsapp', 'social_facebook', 'social_instagram']
-            }
+            },
+            ...(ubigeo_code ? [{
+                model: Ubigeo,
+                as: 'ubigeo',
+                required: true, // INNER JOIN para forzar el filtrado geográfico
+                where: {
+                    code: { [Op.like]: `${ubigeo_code}%` }
+                },
+                attributes: []
+            }] : [])
         ],
         order,
         // Paginación a nivel DB solo cuando no se usa Haversine (limit es número) ─
@@ -696,6 +703,88 @@ const toggleCompanyEnabled = async (companyId, userId, transaction = null) => {
     return await update(companyId, updateData, transaction);
 };
 
+/**
+ * Busca sucursales dentro de un Bounding Box (BBOX) para el mapa interactivo.
+ * @param {object} options
+ */
+const getMapPins = async ({
+    min_lat,
+    max_lat,
+    min_lng,
+    max_lng,
+    country_id,
+    search,
+    sport,
+    limit = 500
+}) => {
+    const where = {
+        parent_company_id: { [Op.ne]: null },
+        status: 'ACTIVE',
+        is_enabled: 'A',
+        latitude:  { [Op.between]: [min_lat, max_lat] },
+        longitude: { [Op.between]: [min_lng, max_lng] }
+    };
+
+    if (country_id) where.country_id = country_id;
+    if (search) where.name = { [Op.iLike]: `%${search}%` };
+
+    const spaceInclude = sport ? {
+        model: Space,
+        as: 'spaces',
+        required: true,
+        include: [{
+            model: SportType,
+            as: 'sportType',
+            attributes: ['name'],
+            where: { name: { [Op.iLike]: `%${sport}%` } }
+        }],
+        attributes: ['space_id']
+    } : null;
+
+    const avgRatingLiteral = Company.sequelize.literal(`(
+        SELECT ROUND(AVG(score)::numeric, 1)
+        FROM dsg_bss_ratings
+        WHERE sucursal_id = "Company"."company_id"
+        AND status = 'aprobada'
+    )`);
+
+    const queryOptions = {
+        where,
+        distinct: true,
+        col: 'company_id',
+        subQuery: false, // Evita error de subquery con joins filtrados y limit
+        attributes: [
+            'company_id', 'name', 'latitude', 'longitude', 'min_price',
+            [avgRatingLiteral, 'avg_rating']
+        ],
+        include: [
+            {
+                model: Country,
+                as: 'country',
+                attributes: ['currency_simbol']
+            },
+            {
+                model: Company,
+                as: 'parentCompany',
+                required: true,
+                where: { status: 'ACTIVE', is_enabled: 'A' },
+                attributes: []
+            },
+            {
+                model: Media,
+                as: 'media',
+                where: { is_primary: true, medible_type: 'Company' },
+                required: false,
+                attributes: ['file_url']
+            },
+            ...(spaceInclude ? [spaceInclude] : [])
+        ],
+        limit
+    };
+
+    return await Company.findAll(queryOptions);
+};
+
 module.exports = {
     create,
     findById,
@@ -711,6 +800,7 @@ module.exports = {
     validateParentCompanyExists,
     getCompanyDetails,
     getActiveSubsidiaries,
+    getMapPins,
     findCountryByIso,
     findUbigeoByNameAndLevel,
     toggleCompanyEnabled

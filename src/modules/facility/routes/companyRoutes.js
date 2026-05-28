@@ -7,7 +7,7 @@ const express = require('express');
 const router = express.Router();
 
 const { validateDTO, validateQuery } = require('../../../shared/middlewares/validateDTO');
-const { queryParamsSchema, publicSucursalQueryDto } = require('../dto/CompanyDto');
+const { queryParamsSchema, publicSucursalQueryDto, mapPinsQueryDto } = require('../dto/CompanyDto');
 const { createRatingDto } = require('../dto/RatingDto');
 const { protegerPermiso, protegerPermisoConScope } = require('../../../shared/middlewares/proteger');
 const { verificarTokenAuth } = require('../../../shared/middlewares/verificarTokenAuth');
@@ -23,6 +23,7 @@ const {
     updateCompany,
     toggleCompanyEnabled,
     getPublicSucursales,
+    getMapPins,
     getPublicSucursal,
 } = require('../controllers/CompanyController');
 
@@ -73,6 +74,7 @@ router.put(
 // ── Portal de Reservas — sucursales públicas ──────────────────────────────────
 
 router.get('/public/subsidiaries', validateQuery(publicSucursalQueryDto), GlobalErrorHandler.asyncHandler(getPublicSucursales));
+router.get('/public/map-pins', validateQuery(mapPinsQueryDto), GlobalErrorHandler.asyncHandler(getMapPins));
 
 // verificarTokenOptional: enriquece con is_favorited si el usuario está autenticado ──
 router.get('/public/subsidiaries/:id', verificarTokenOptional, GlobalErrorHandler.asyncHandler(getPublicSucursal));

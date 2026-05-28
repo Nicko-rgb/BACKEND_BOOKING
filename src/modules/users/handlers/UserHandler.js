@@ -94,6 +94,31 @@ const logoutHandler = async (res, token) => {
     return ApiResponse.ok(res, null, 'Sesión cerrada correctamente.');
 };
 
+// ─── Gestión de Contraseñas ───────────────────────────────────────────────────
+
+const changePasswordHandler = async (res, req) => {
+    const { currentPassword, newPassword } = req.body;
+    const { user_id } = extractUserContext(req);
+    const result = await userService.changePassword(user_id, currentPassword, newPassword);
+    return ApiResponse.ok(res, null, result.message);
+};
+
+const forgotPasswordHandler = async (res, req) => {
+    const { email, source } = req.body;
+    // Sanitizar: solo se aceptan valores enum válidos — previene open-redirect
+    const VALID_SOURCES = ['client', 'admin'];
+    const safeSource = VALID_SOURCES.includes(source) ? source : 'admin';
+    const result = await userService.forgotPassword(email, safeSource);
+    return ApiResponse.ok(res, null, result.message);
+};
+
+const resetPasswordHandler = async (res, req) => {
+    const { token, newPassword, password } = req.body;
+    // Soporta tanto 'newPassword' (admin) como 'password' (front) para mayor robustez
+    const result = await userService.resetPassword(token, newPassword || password);
+    return ApiResponse.ok(res, null, result.message);
+};
+
 module.exports = {
     createUserHandler,
     loginUserHandler,
@@ -105,5 +130,8 @@ module.exports = {
     getTenantStaffHandler,
     getStaffOverviewHandler,
     updateStaffUserHandler,
-    logoutHandler
+    logoutHandler,
+    changePasswordHandler,
+    forgotPasswordHandler,
+    resetPasswordHandler,
 };

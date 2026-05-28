@@ -95,6 +95,12 @@ const getPaymentMethods = async (res, id) => {
     return ApiResponse.ok(res, paymentMethods, 'Métodos de pago de la sucursal.');
 };
 
+// Obtener pines de mapa por BBOX
+const getMapPins = async (res, filters = {}) => {
+    const items = await CompanyService.getMapPins(filters);
+    return ApiResponse.ok(res, CompanyDto.toResponseMapPins(items), 'Pines de mapa.');
+};
+
 module.exports = {
     registerCompany,
     getAllCompanies,
@@ -104,5 +110,6 @@ module.exports = {
     toggleCompanyEnabled,
     getPublicSucursales,
     getPublicSucursal,
+    getMapPins,
     getPaymentMethods
 };

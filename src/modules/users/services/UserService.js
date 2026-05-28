@@ -14,6 +14,7 @@ const CompanyRepository = require('../../facility/repository/CompanyRepository')
 const { UserPermission } = require('../models');
 const { Permission } = require('../../catalogs/models');
 const redisClient = require('../../../config/redisConfig');
+const { sendPasswordResetEmail } = require('../../../shared/utils/mailer');
 const { ConflictError, NotFoundError, UnauthorizedError, BadRequestError, ForbiddenError } = require('../../../shared/errors/CustomErrors');
 
 // Roles que pueden acceder al módulo administrador ────────────────────────────
@@ -375,6 +376,96 @@ const updateStaffUser = async (userId, data) => {
     return user;
 };
 
+// ─── Gestión de Contraseñas ───────────────────────────────────────────────────
+
+/**
+ * Cambia la contraseña validando la actual (para usuarios autenticados)
+ */
+const changePassword = async (userId, currentPassword, newPassword) => {
+    const user = await userRepository.getUserById(userId);
+    if (!user) throw new NotFoundError('Usuario no encontrado');
+
+    await verifyPassword(user, currentPassword);
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await userRepository.updateUser(userId, { password: hashedPassword });
+    
+    return { message: 'Contraseña actualizada exitosamente' };
+};
+
+/**
+ * Solicita restablecer la contraseña (genera token por email).
+ * @param {string} email
+ * @param {string} source - Origen de la solicitud: 'client' (portal Booking) | 'admin' (módulo Admin)
+ *                          Se valida como enum en el handler — nunca se acepta URL libre del cliente.
+ */
+const forgotPassword = async (email, source = 'admin') => {
+    const user = await userRepository.findUserByEmail(email);
+    if (!user) {
+        // Por seguridad, no revelamos si el correo existe o no, devolvemos success igual
+        return { message: 'Si el correo existe, recibirás un enlace de recuperación.' };
+    }
+
+    // Generar un token JWT válido por 1 hora
+    // Usamos el hash de la contraseña actual en el secreto para invalidar el token
+    // inmediatamente después de que la contraseña sea cambiada (one-time use).
+    const secret = process.env.JWT_SECRET + user.password;
+    const resetToken = jwt.sign(
+        { user_id: user.user_id, purpose: 'reset-password' },
+        secret,
+        { expiresIn: '1h' }
+    );
+
+    // Mapa de URLs base por source — controlado en el servidor, no expuesto al cliente
+    const SOURCE_URL_MAP = {
+        client: process.env.FRONT_BOOKING_APP,
+        admin:  process.env.FRONT_ADMIN_BOOKING,
+    };
+    const baseUrl = SOURCE_URL_MAP[source] || process.env.FRONT_ADMIN_BOOKING;
+    const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
+
+    // Enviar el correo usando Nodemailer
+    await sendPasswordResetEmail(email, resetLink);
+
+    return { message: 'Si el correo existe, recibirás un enlace de recuperación.' };
+};
+
+/**
+ * Restablece la contraseña usando el token enviado al correo
+ */
+const resetPassword = async (token, newPassword) => {
+    try {
+        // Decodificar sin verificar aún para obtener el user_id
+        const decoded = jwt.decode(token);
+        if (!decoded || decoded.purpose !== 'reset-password') {
+            throw new UnauthorizedError('El enlace es inválido o está corrupto.');
+        }
+
+        const user = await userRepository.getUserById(decoded.user_id);
+        if (!user) throw new NotFoundError('Usuario no encontrado');
+
+        // Reconstruir el secreto esperado (secreto general + hash de contraseña actual)
+        const secret = process.env.JWT_SECRET + user.password;
+
+        // Verificar el token con el secreto dinámico
+        jwt.verify(token, secret);
+
+        // Si es válido, actualizar contraseña
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await userRepository.updateUser(user.user_id, { password: hashedPassword });
+
+        return { message: 'Contraseña restablecida exitosamente' };
+    } catch (error) {
+        if (error.name === 'TokenExpiredError') {
+            throw new UnauthorizedError('El enlace ha expirado. Por favor, solicita uno nuevo.');
+        }
+        if (error.name === 'JsonWebTokenError' || error instanceof UnauthorizedError) {
+            throw new UnauthorizedError('El enlace es inválido, está corrupto o ya fue utilizado.');
+        }
+        throw error;
+    }
+};
+
 module.exports = {
     createNewUser,
     loginUser,
@@ -387,4 +478,7 @@ module.exports = {
     getStaffOverview,
     updateStaffUser,
     logoutUser,
+    changePassword,
+    forgotPassword,
+    resetPassword,
 };
