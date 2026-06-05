@@ -5,7 +5,7 @@
  */
 const bcrypt = require('bcryptjs');
 const { User, UserPermission } = require('../../models');
-const { Permission } = require('../../../catalogs/models');
+const { Permission } = require('../../../system/models');
 
 // Datos del usuario del sistema ────────────────────────────────────────────────
 const SYSTEM_USER_DATA = {

@@ -31,7 +31,7 @@ module.exports = models;
 // Importar modelos de otros módulos para las asociaciones a través de sus índices
 const { User, UserFavorite, UserCompany } = require('../../users/models');
 const { Media } = require('../../media/models');
-const { Country, Ubigeo, SurfaceType, SportType, SportCategory, PaymentType } = require('../../catalogs/models');
+const { Country, Ubigeo, SurfaceType, SportType, SportCategory, PaymentType, SaaSSubscription } = require('../../system/models');
 const { Booking } = require('../../booking/models');
 const { Notification } = require('../../notification/models');
 
@@ -48,6 +48,7 @@ const allModels = {
     SportType,
     SportCategory,
     PaymentType,
+    SaaSSubscription,
     Booking,
     Notification
 };

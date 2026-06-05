@@ -290,6 +290,14 @@ Company.associate = function (models) {
         foreignKey: 'user_update',
         as: 'updater'
     });
+
+    // Tiene una suscripción SaaS (Típicamente solo si es parent_company_id null, pero la definimos a nivel modelo)
+    if (models.SaaSSubscription) {
+        Company.hasOne(models.SaaSSubscription, {
+            foreignKey: 'company_id',
+            as: 'subscription'
+        });
+    }
 };
 
 module.exports = Company;

@@ -3,7 +3,7 @@ const { BookingDto } = require('../dto/BookingDto');
 const ApiResponse = require('../../../shared/utils/ApiResponse');
 const StripeService = require('../services/StripeService');
 const BookingRepository = require('../repository/BookingRepository');
-const { PaymentType } = require('../../catalogs/models');
+const { PaymentType } = require('../../system/models');
 const { Space } = require('../../facility/models');
 const { BadRequestError } = require('../../../shared/errors/CustomErrors');
 

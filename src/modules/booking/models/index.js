@@ -23,7 +23,7 @@ module.exports = models;
 // Importar modelos de otros módulos necesarios para las asociaciones a través de sus índices
 const { User } = require('../../users/models');
 const { Company, Space, Rating } = require('../../facility/models');
-const { PaymentType } = require('../../catalogs/models');
+const { PaymentType } = require('../../system/models');
 
 // Objeto con todos los modelos para las asociaciones
 const allModels = {

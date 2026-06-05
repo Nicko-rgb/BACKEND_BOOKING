@@ -7,7 +7,7 @@
  * - Stats de usuarios usan User.role directamente
  */
 const { Op, Sequelize } = require('sequelize');
-const { Permission, MenuItem, Country } = require('../../catalogs/models');
+const { Permission, MenuItem, Country } = require('../../system/models');
 const { User, UserPermission, UserCompany, Person } = require('../models');
 const { Company } = require('../../facility/models');
 

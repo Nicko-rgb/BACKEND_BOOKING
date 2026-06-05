@@ -8,8 +8,8 @@ const UserManagementRepository = require('../repository/UserManagementRepository
 const { NotFoundError, ValidationError, ConflictError, ForbiddenError } = require('../../../shared/errors/CustomErrors');
 const { User, UserPermission } = require('../models');
 const { Company }    = require('../../facility/models');
-const { Permission } = require('../../catalogs/models');
-const { DEFAULT_PERMISSIONS } = require('../../catalogs/constants/permissionsConstants');
+const { Permission } = require('../../system/models');
+const { DEFAULT_PERMISSIONS } = require('../../system/constants/permissionsConstants');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PERMISSIONS

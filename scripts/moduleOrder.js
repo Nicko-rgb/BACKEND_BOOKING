@@ -8,11 +8,11 @@
 
 // Orden de dependencia entre módulos ──────────────────────────────────────────
 const MODULE_ORDER = [
-    'catalogs',      // Sin dependencias externas (Country, Permission, SportType, etc.)
-    'users',         // Depende de: catalogs (Country, Permission)
+    'system',        // Sin dependencias externas (Country, Permission, SportType, SaaSPlan, etc.)
+    'users',         // Depende de: system (Country, Permission)
     'media',         // Polimórfico — sin FK duras a otros módulos
-    'facility',      // Depende de: users, catalogs
-    'booking',       // Depende de: users, facility, catalogs
+    'facility',      // Depende de: users, system
+    'booking',       // Depende de: users, facility, system
     'notification',  // Depende de: users, facility
 ];
 

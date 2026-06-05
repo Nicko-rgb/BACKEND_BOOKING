@@ -3,7 +3,7 @@
  * seedName debe coincidir con el registrado en dsg_bss_seed_meta en producción.
  */
 const { Company } = require('../../models');
-const Ubigeo = require('../../../catalogs/models/Ubigeo');
+const Ubigeo = require('../../../system/models/Ubigeo');
 
 // Definición base de sucursales — distCode se resuelve a ubigeo_id en tiempo de ejecución
 const sucursalesSeedBase = [

@@ -7,7 +7,7 @@ const { Op, where } = require('sequelize');
 const Space = require('../models/Space');
 const models = require('../models');
 const { Media } = require('../../media/models');
-const { SurfaceType, SportType, SportCategory, Country } = require('../../catalogs/models');
+const { SurfaceType, SportType, SportCategory, Country } = require('../../system/models');
 
 /**
  * Crear un nuevo espacio deportivo

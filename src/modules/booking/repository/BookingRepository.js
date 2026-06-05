@@ -1,7 +1,7 @@
 const { Booking, PaymentBooking, BookingHold } = require('../models');
 const { BusinessHour, Space } = require('../../facility/models');
 const { User, Person } = require('../../users/models');
-const { SportType } = require('../../catalogs/models');
+const { SportType } = require('../../system/models');
 const { Op } = require('sequelize');
 
 class BookingRepository {

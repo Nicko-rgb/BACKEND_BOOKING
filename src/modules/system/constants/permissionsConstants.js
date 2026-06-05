@@ -68,6 +68,7 @@ const PERMISSIONS_CATALOG = [
     { key: 'sport_category.manage',   label: 'Gestionar categorías deportivas',  module: 'system', app_access: 'admin' },
     { key: 'surface_type.manage',     label: 'Gestionar tipos de superficie',    module: 'system', app_access: 'admin' },
     { key: 'ubigeo.manage',           label: 'Gestionar ubigeo (divisiones geográficas)', module: 'system', app_access: 'admin' },
+    { key: 'plan.manage',             label: 'Gestionar planes SaaS',                      module: 'system', app_access: 'admin' },
 ];
 
 /**
@@ -125,6 +126,7 @@ const DEFAULT_PERMISSIONS = {
         'administrator.manage_own',
         'employee.manage_own',
         'config.user_assign',
+        'plan.manage',
         'reports.view',
         'statistics.view',
     ],

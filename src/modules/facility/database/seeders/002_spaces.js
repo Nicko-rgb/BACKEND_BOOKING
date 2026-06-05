@@ -3,7 +3,7 @@
  * seedName debe coincidir con el registrado en dsg_bss_seed_meta en producción.
  */
 const { Space, Company } = require('../../models');
-const { SurfaceType, SportType, SportCategory } = require('../../../catalogs/models');
+const { SurfaceType, SportType, SportCategory } = require('../../../system/models');
 
 /**
  * Seed para espacios deportivos

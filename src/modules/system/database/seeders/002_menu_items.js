@@ -30,6 +30,10 @@ const MENU_ITEMS = [
     { key: 'cat_surface_types',  label: 'Superficies',        icon: 'Grid3x3',     path: '/system/catalogs/surface-types',    parent_key: 'catalogs', required_permission: 'surface_type.manage',   app_access: 'admin', group_title: 'SISTEMA', sort_order: 4, is_active: true },
     { key: 'cat_payment_types',  label: 'Tipos de pago',      icon: 'CreditCard',  path: '/system/catalogs/payment-types',    parent_key: 'catalogs', required_permission: 'payment_type.manage',   app_access: 'admin', group_title: 'SISTEMA', sort_order: 5, is_active: true },
     { key: 'cat_ubigeo',         label: 'Ubigeo',             icon: 'MapPin',      path: '/system/catalogs/ubigeo',           parent_key: 'catalogs', required_permission: 'ubigeo.manage',         app_access: 'admin', group_title: 'SISTEMA', sort_order: 6, is_active: true },
+    { key: 'cat_plans',          label: 'Planes',             icon: 'Gift',        path: '/system/plans',                    parent_key: 'catalogs', required_permission: 'plan.manage',          app_access: 'admin', group_title: 'SISTEMA', sort_order: 7, is_active: true },
+
+    // ── Grupo: SISTEMA — Suscripciones ────────────────────────────────
+    { key: 'suscripciones',      label: 'Suscripciones',      icon: 'CreditCard',  path: '/system/suscripciones',            parent_key: null,       required_permission: null,                  app_access: 'admin', group_title: 'SISTEMA', sort_order: 4, is_active: true },
 ];
 
 // Función del seed ────────────────────────────────────────────────────────────

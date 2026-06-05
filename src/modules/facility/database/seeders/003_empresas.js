@@ -11,7 +11,7 @@
  */
 
 const { Company, Configuration, Space } = require('../../models');
-const { SurfaceType, SportType, SportCategory, Ubigeo } = require('../../../catalogs/models');
+const { SurfaceType, SportType, SportCategory, Ubigeo } = require('../../../system/models');
 
 // ─── Datos de empresas ────────────────────────────────────────────────────────
 

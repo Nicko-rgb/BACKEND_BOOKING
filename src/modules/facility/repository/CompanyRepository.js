@@ -9,7 +9,7 @@ const Company = require('../models/Company');
 const Configuration = require('../models/Configuration');
 const Space = require('../models/Space');
 const ConfigurationPayment = require('../models/ConfigurationPayment');
-const { Country, SurfaceType, SportType, SportCategory, Ubigeo } = require('../../catalogs/models');
+const { Country, SurfaceType, SportType, SportCategory, Ubigeo } = require('../../system/models');
 const { Media } = require('../../media/models');
 const { UserCompany, User, Person } = require('../../users/models');
 

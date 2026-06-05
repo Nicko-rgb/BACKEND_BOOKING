@@ -15,6 +15,8 @@ const SportCategory = require('./SportCategory');
 const PaymentType = require('./PaymentType');
 const Permission = require('./Permission');
 const MenuItem = require('./MenuItem');
+const SaaSPlan = require('./SaaSPlan');
+const SaaSSubscription = require('./SaaSSubscription');
 
 // Crear objeto con todos los modelos del módulo ────────────────────────────
 // Role y RolePermission fueron eliminados — el sistema usa permisos directos por usuario
@@ -30,6 +32,8 @@ const models = {
     PaymentType,
     Permission,
     MenuItem,
+    SaaSPlan,
+    SaaSSubscription,
 };
 
 // Exportar modelos antes de configurar asociaciones para evitar problemas de dependencia circular

@@ -27,7 +27,7 @@ module.exports = models;
 const { Media } = require('../../media/models');
 const { Booking } = require('../../booking/models');
 const { Rating, Company } = require('../../facility/models');
-const { Country, Permission } = require('../../catalogs/models');
+const { Country, Permission } = require('../../system/models');
 
 // Objeto con todos los modelos necesarios para las asociaciones
 const allModels = {

@@ -30,12 +30,13 @@ const companyRoutes = require('./src/modules/facility/routes/companyRoutes');
 const configRoutes = require('./src/modules/facility/routes/configRoutes');
 const paymentFacilityRoutes = require('./src/modules/facility/routes/paymentRoutes');
 const spaceRoutes = require('./src/modules/facility/routes/spaceRoutes');
-const indexCatalogsRoute = require('./src/modules/catalogs/routes/indexCatalogsRoute');
-const catalogsAdminRoute = require('./src/modules/catalogs/routes/catalogsAdminRoute');
+const indexCatalogsRoute = require('./src/modules/system/routes/indexCatalogsRoute');
+const catalogsAdminRoute = require('./src/modules/system/routes/catalogsAdminRoute');
 const bookingRoutes = require('./src/modules/booking/routes/bookingRoutes');
 const paymentBookingRoutes = require('./src/modules/booking/routes/paymentBookingRoutes');
 const mediaRoutes = require('./src/modules/media/routes/mediaRoutes');
 const inicioRoutes = require('./src/modules/reports/routes/inicioRoutes');
+const plansRoutes = require('./src/modules/system/routes/plansRoutes');
 const redisClient = require('./src/config/redisConfig');
 const { startExpirationJob } = require('./src/modules/booking/jobs/expirationJob');
 const { initSocket } = require('./src/config/socketConfig');
@@ -165,6 +166,9 @@ app.use('/api/reservations', bookingRoutes);         // Alias de compatibilidad 
 
 // ── Multimedia ────────────────────────────────────────────────────────────────
 app.use('/api/media', mediaRoutes);
+
+// ── Planes SaaS ───────────────────────────────────────────────────────────────
+app.use('/api/system/plans', plansRoutes);
 
 // ── Reportes / Página de inicio ─────────────────────────────────────────────
 app.use('/api/reports', inicioRoutes);

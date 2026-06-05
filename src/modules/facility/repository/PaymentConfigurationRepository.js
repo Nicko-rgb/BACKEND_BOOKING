@@ -1,5 +1,5 @@
 const ConfigurationPayment = require('../models/ConfigurationPayment');
-const PaymentType = require('../../catalogs/models/PaymentType');
+const PaymentType = require('../../system/models/PaymentType');
 const PaymentAccount = require('../models/PaymentAccount');
 const { Op } = require('sequelize');
 

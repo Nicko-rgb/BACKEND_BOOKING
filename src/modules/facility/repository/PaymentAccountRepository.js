@@ -1,5 +1,5 @@
 const PaymentAccount = require('../models/PaymentAccount');
-const PaymentType = require('../../catalogs/models/PaymentType');
+const PaymentType = require('../../system/models/PaymentType');
 
 class PaymentAccountRepository {
     static async findBySucursal(sucursalId) {
