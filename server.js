@@ -37,6 +37,8 @@ const paymentBookingRoutes = require('./src/modules/booking/routes/paymentBookin
 const mediaRoutes = require('./src/modules/media/routes/mediaRoutes');
 const inicioRoutes = require('./src/modules/reports/routes/inicioRoutes');
 const plansRoutes = require('./src/modules/system/routes/plansRoutes');
+const saasRoutes = require('./src/modules/saas/routes/saasRoutes');
+const webhookRoutes = require('./src/modules/saas/routes/webhookRoutes');
 const redisClient = require('./src/config/redisConfig');
 const { startExpirationJob } = require('./src/modules/booking/jobs/expirationJob');
 const { initSocket } = require('./src/config/socketConfig');
@@ -169,6 +171,10 @@ app.use('/api/media', mediaRoutes);
 
 // ── Planes SaaS ───────────────────────────────────────────────────────────────
 app.use('/api/system/plans', plansRoutes);
+
+// ── Módulo SaaS (MercadoPago) ──────────────────────────────────────────────────
+app.use('/api/v1/saas', saasRoutes);
+app.use('/api/v1/saas-webhooks', webhookRoutes);
 
 // ── Reportes / Página de inicio ─────────────────────────────────────────────
 app.use('/api/reports', inicioRoutes);

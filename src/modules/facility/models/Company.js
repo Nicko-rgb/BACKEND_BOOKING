@@ -137,9 +137,9 @@ const Company = sequelize.define('Company', {
         comment: 'Referencia a la compañía padre (para sucursales)'
     },
     is_enabled: {
-        type: DataTypes.ENUM('A', 'I'),
+        type: DataTypes.ENUM('A', 'I', 'P'),
         allowNull: false,
-        comment: 'Flag de habilitación'
+        comment: "Flag de habilitación: 'A'=Active, 'I'=Inactive, 'P'=Pending (pago SaaS pendiente)"
     },
     user_create: {
         type: DataTypes.BIGINT,

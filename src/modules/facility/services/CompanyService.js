@@ -11,12 +11,12 @@ const buildAuditFields = (userId) => {
     return { user_create: userId, user_update: userId }
 }
 
-const buildBaseCompanyData = (companyData, userId) => {
+const buildBaseCompanyData = (companyData, userId, mode = 'ACTIVE') => {
     return {
         ...companyData,
         ...buildAuditFields(userId),
-        status: 'ACTIVE',
-        is_enabled: 'A'
+        status: mode === 'PENDING' ? 'INACTIVE' : 'ACTIVE',
+        is_enabled: mode === 'PENDING' ? 'P' : 'A'
     }
 }
 

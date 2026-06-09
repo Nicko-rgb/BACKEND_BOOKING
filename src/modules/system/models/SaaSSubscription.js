@@ -34,36 +34,66 @@ SaaSSubscription.init({
     },
     company_id: {
         type: DataTypes.BIGINT,
-        allowNull: false
+        allowNull: false,
+        comment: 'ID del Tenant (Empresa Padre donde parent_company_id es null)',
     },
     plan_id: {
         type: DataTypes.BIGINT,
-        allowNull: false
+        allowNull: false,
+        comment: 'ID del Plan de SaaS',
+        references: {
+            model: 'dsg_bss_saas_plans',
+            key: 'plan_id'
+        },
+        onUpdate: 'CASCADE'
     },
     status: {
         type: DataTypes.STRING(30),
         allowNull: false,
-        defaultValue: 'TRIAL'
+        defaultValue: 'TRIAL',
+        comment: 'TRIAL, ACTIVE, PAST_DUE, CANCELED, INCOMPLETE'
     },
     stripe_customer_id: {
         type: DataTypes.STRING(100),
-        allowNull: true
+        allowNull: true,
+        comment: 'ID del Cliente de Stripe'
     },
     stripe_subscription_id: {
         type: DataTypes.STRING(100),
-        allowNull: true
+        allowNull: true,
+        comment: 'ID de la Suscripción de Stripe'
+    },
+    // ── MercadoPago ─────────────────────────────────────────────────────────
+    gateway: {
+        type: DataTypes.STRING(30),
+        allowNull: false,
+        defaultValue: 'STRIPE',
+        comment: "Pasarela activa: 'STRIPE' | 'MERCADOPAGO'"
+    },
+    mp_preapproval_id: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        comment: 'ID del Preapproval en MercadoPago'
+    },
+    mp_payer_email: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        comment: 'Email del pagador registrado en MercadoPago'
     },
     current_period_start: {
         type: DataTypes.DATE,
-        allowNull: true
+        allowNull: true,
+        comment: 'Fecha de inicio del mes/año pagado'
     },
     current_period_end: {
         type: DataTypes.DATE,
-        allowNull: true
+        allowNull: true,
+        comment: 'Fecha de vencimiento del mes/año pagado'
     },
     cancel_at_period_end: {
         type: DataTypes.BOOLEAN,
-        defaultValue: false
+        defaultValue: false,
+        comment: 'Si el usuario canceló, pero puede usarlo hasta fin de mes'
     }
 }, {
     sequelize,
