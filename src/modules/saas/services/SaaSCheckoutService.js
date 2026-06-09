@@ -123,7 +123,8 @@ const createCheckoutSession = async (payload) => {
 
         // 3. Llamar a la API de MercadoPago para generar la Suscripción Recurrente (Preapproval)
         const price = billing_period === 'monthly' ? plan.price_monthly : plan.price_yearly;
-        const frequencyType = billing_period === 'monthly' ? 'months' : 'years';
+        const frequency = billing_period === 'monthly' ? 1 : 12;
+        const frequencyType = 'months'; // MercadoPago solo acepta 'days' o 'months' (no 'years')
         const frontAppUrl = process.env.FRONT_BOOKING_APP || 'http://localhost:3010';
 
         let mpResponse;
@@ -136,7 +137,7 @@ const createCheckoutSession = async (payload) => {
                     external_reference: subscription.subscription_id.toString(),
                     payer_email: email,
                     auto_recurring: {
-                        frequency: 1,
+                        frequency: frequency,
                         frequency_type: frequencyType,
                         transaction_amount: Number(price),
                         currency_id: 'PEN' // Soles peruanos por defecto
