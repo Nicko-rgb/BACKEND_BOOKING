@@ -7,7 +7,7 @@ const { SaaSPlan, SaaSSubscription } = require('../../system/models');
 const { Company } = require('../../facility/models');
 const { User, Person, UserCompany, UserPermission } = require('../../users/models');
 const { DEFAULT_PERMISSIONS } = require('../../system/constants/permissionsConstants');
-const { PreApprovalPlan } = require('../../../config/mercadopago');
+const { PreApproval } = require('../../../config/mercadopago');
 const { ConflictError, BadRequestError } = require('../../../shared/errors/CustomErrors');
 
 const createCheckoutSession = async (payload) => {
@@ -129,18 +129,20 @@ const createCheckoutSession = async (payload) => {
 
         let mpResponse;
         try {
-            const preapprovalPlan = new PreApprovalPlan(require('../../../config/mercadopago').client);
-            mpResponse = await preapprovalPlan.create({
+            const preapprovalClient = new PreApproval(require('../../../config/mercadopago').client);
+            mpResponse = await preapprovalClient.create({
                 body: {
                     reason: `Plan ${plan.name} (${billing_period === 'monthly' ? 'Mensual' : 'Anual'})`,
+                    payer_email: email,
                     auto_recurring: {
                         frequency: frequency,
                         frequency_type: frequencyType,
                         transaction_amount: Number(price),
-                        currency_id: 'PEN' // Soles peruanos por defecto
+                        currency_id: 'PEN'
                     },
                     back_url: `${frontAppUrl}/checkout/success`,
-                    external_reference: subscription.subscription_id.toString()
+                    external_reference: subscription.subscription_id.toString(),
+                    status: 'pending'
                 }
             });
         } catch (mpError) {
