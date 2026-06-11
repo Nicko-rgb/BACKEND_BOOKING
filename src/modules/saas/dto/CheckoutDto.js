@@ -17,7 +17,10 @@ const checkoutSessionSchema = Joi.object({
     last_name: Joi.string().min(2).max(100).required(),
     email: Joi.string().email().max(100).required(),
     password: Joi.string().min(6).max(100).required(),
-    owner_phone: Joi.string().min(6).max(20).optional().allow('', null)
+    owner_phone: Joi.string().min(6).max(20).optional().allow('', null),
+
+    // Token de tarjeta generado por MercadoPago Bricks en el frontend
+    card_token_id: Joi.string().required()
 });
 
 module.exports = {
