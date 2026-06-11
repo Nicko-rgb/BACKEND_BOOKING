@@ -157,8 +157,16 @@ const createCheckoutSession = async (payload) => {
             const mpMessage = Array.isArray(mpCause)
                 ? mpCause.map(c => `[${c.code}] ${c.description}`).join(' | ')
                 : String(mpCause);
+            // Log completo para depuración en producción
             console.error(`[MP Preapproval] HTTP ${mpStatus} — ${mpMessage}`);
-            throw new Error('Hubo un error al procesar el pago. Por favor verifique los datos de su tarjeta e intente nuevamente.');
+            console.error('[MP Preapproval] Full error:', JSON.stringify(mpError, Object.getOwnPropertyNames(mpError)));
+
+            // Mensaje específico para validación de tarjeta
+            const isCardValidation = mpMessage.includes('CC_VAL_433') || mpMessage.includes('card validation');
+            const userMessage = isCardValidation
+                ? 'La tarjeta fue rechazada para suscripciones recurrentes. Use una tarjeta de crédito habilitada para pagos recurrentes e intente nuevamente.'
+                : 'Hubo un error al procesar el pago. Por favor verifique los datos de su tarjeta e intente nuevamente.';
+            throw new Error(userMessage);
         }
 
         if (!mpResponse?.id) {
