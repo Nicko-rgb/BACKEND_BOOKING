@@ -129,7 +129,8 @@ const createCheckoutSession = async (payload) => {
 
         let mpResponse;
         try {
-            const preapprovalClient = new PreApproval(require('../../../config/mercadopago').client);
+            const { client: mpClient } = require('../../../config/mercadopago');
+            const preapprovalClient = new PreApproval(mpClient);
             mpResponse = await preapprovalClient.create({
                 body: {
                     reason: `Plan ${plan.name} (${billing_period === 'monthly' ? 'Mensual' : 'Anual'})`,
@@ -141,13 +142,19 @@ const createCheckoutSession = async (payload) => {
                         currency_id: 'PEN'
                     },
                     back_url: `${frontAppUrl}/checkout/success`,
-                    external_reference: subscription.subscription_id.toString(),
-                    status: 'pending'
+                    external_reference: subscription.subscription_id.toString()
+                    // Nota: no se envía 'status' — MP lo gestiona internamente al crear el preapproval
                 }
             });
         } catch (mpError) {
-            console.error('Error al llamar a la API de MercadoPago:', mpError);
-            throw new Error('Hubo un error al conectar con la pasarela de pagos. Por favor, reintente en unos minutos.');
+            // Exponer el detalle real de la respuesta de MP para facilitar diagnóstico ─────────
+            const mpStatus  = mpError?.status  ?? 'N/A';
+            const mpCause   = mpError?.cause   ?? mpError?.message ?? mpError;
+            const mpMessage = Array.isArray(mpCause)
+                ? mpCause.map(c => `[${c.code}] ${c.description}`).join(' | ')
+                : String(mpCause);
+            console.error(`[MP Preapproval] HTTP ${mpStatus} — ${mpMessage}`);
+            throw new Error(`Hubo un error al conectar con la pasarela de pagos (${mpMessage}). Por favor, reintente en unos minutos.`);
         }
 
         // Si MercadoPago responde sin init_point, lanzar error para hacer rollback
