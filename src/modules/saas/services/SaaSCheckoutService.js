@@ -138,13 +138,17 @@ const createCheckoutSession = async (payload) => {
         try {
             const { client: mpClient } = require('../../../config/mercadopago');
             const preapprovalClient = new PreApproval(mpClient);
+            const backendUrl = process.env.BACKEND_URL || process.env.BACK_URL || 'https://api.redepor.com';
             mpResponse = await preapprovalClient.create({
                 body: {
                     preapproval_plan_id: mpPlanId,
                     card_token_id,
                     payer_email:        email,
                     external_reference: subscription.subscription_id.toString(),
-                    back_url:           `${frontAppUrl}/checkout/success`
+                    back_url:           `${frontAppUrl}/checkout/success`,
+                    // notification_url garantiza que MP envíe el webhook a este endpoint
+                    // independientemente de la configuración en el dashboard de MP
+                    notification_url:   `${backendUrl}/api/v1/saas-webhooks/webhook`
                 }
             });
         } catch (mpError) {
