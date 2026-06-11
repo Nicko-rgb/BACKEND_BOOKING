@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const sequelize = require('../../../config/db');
 const { SaaSSubscription } = require('../../system/models');
 const { Company } = require('../../facility/models');
@@ -38,22 +39,37 @@ const handleWebhook = async (payload) => {
         return { success: false, error: 'Not found in MercadoPago' };
     }
 
-    const subscriptionId = mpData.external_reference;
-    if (!subscriptionId) {
-        console.warn(`[MP Webhook] El preapproval de MP no cuenta con external_reference (subscription_id): ${preapprovalId}`);
-        return { success: true, ignored: true }; // Ignoramos si no es una creada por el SaaS
+    // 3. Buscar la suscripción en la BD ────────────────────────────────────────────────────
+    //    Flujo con plan de MP (redirect): el checkout no crea preapproval vía API, por lo
+    //    que no hay external_reference. Se hace matching por mp_payer_email (email del checkout).
+    let subscription = null;
+
+    const externalRef = mpData.external_reference;
+    const payerEmail  = mpData.payer?.email;
+
+    if (externalRef) {
+        // Matching directo por external_reference (flujo legado o futuro con card token)
+        subscription = await SaaSSubscription.findByPk(externalRef);
+    } else if (payerEmail) {
+        // Matching por email del pagador — solo tomamos suscripciones PENDING para evitar
+        // activar una ya activa si el usuario tiene otro intento previo
+        subscription = await SaaSSubscription.findOne({
+            where: {
+                mp_payer_email: payerEmail,
+                status: { [Op.in]: ['PENDING'] }
+            },
+            order: [['created_at', 'DESC']] // La más reciente si hubiera más de una
+        });
     }
 
-    // 3. Buscar la suscripción en la BD
-    const subscription = await SaaSSubscription.findByPk(subscriptionId, {
-        include: [
-            { model: Company, as: 'tenant' }
-        ]
-    });
-
     if (!subscription) {
-        console.warn(`[MP Webhook] Suscripción no encontrada en base de datos. ID: ${subscriptionId}`);
-        return { success: false, error: 'Subscription not found' };
+        console.warn(`[MP Webhook] No se encontró suscripción PENDING para preapproval ${preapprovalId} (email: ${payerEmail}, ref: ${externalRef})`);
+        return { success: true, ignored: true };
+    }
+
+    // Guardar el mp_preapproval_id en la suscripción si aún no lo tiene
+    if (!subscription.mp_preapproval_id) {
+        await subscription.update({ mp_preapproval_id: preapprovalId });
     }
 
     const status = mpData.status; // 'pending', 'authorized', 'paused', 'cancelled'
@@ -67,12 +83,15 @@ const handleWebhook = async (payload) => {
             const now = new Date();
             const endDate = new Date();
             
-            // Estimar duración basándonos en la frecuencia de cobro de MercadoPago
-            const frequencyType = mpData.auto_recurring?.frequency_type;
-            if (frequencyType === 'years') {
-                endDate.setFullYear(now.getFullYear() + 1);
+            // Calcular endDate según frecuencia del plan en MP ────────────────────────────
+            const frequency     = mpData.auto_recurring?.frequency      ?? 1;
+            const frequencyType = mpData.auto_recurring?.frequency_type ?? 'months';
+            if (frequencyType === 'months') {
+                endDate.setMonth(now.getMonth() + frequency);
+            } else if (frequencyType === 'days') {
+                endDate.setDate(now.getDate() + frequency);
             } else {
-                endDate.setMonth(now.getMonth() + 1); // Por defecto mensual
+                endDate.setFullYear(now.getFullYear() + 1); // Fallback anual
             }
 
             await subscription.update({

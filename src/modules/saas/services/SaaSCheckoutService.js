@@ -7,7 +7,6 @@ const { SaaSPlan, SaaSSubscription } = require('../../system/models');
 const { Company } = require('../../facility/models');
 const { User, Person, UserCompany, UserPermission } = require('../../users/models');
 const { DEFAULT_PERMISSIONS } = require('../../system/constants/permissionsConstants');
-const { PreApproval } = require('../../../config/mercadopago');
 const { ConflictError, BadRequestError } = require('../../../shared/errors/CustomErrors');
 
 const createCheckoutSession = async (payload) => {
@@ -122,7 +121,10 @@ const createCheckoutSession = async (payload) => {
         }, { transaction });
 
         // 3. Resolver el preapproval_plan_id de MercadoPago según el periodo de facturación ──
-        //    El plan en MP define el monto y frecuencia — no se envía auto_recurring
+        //    En Perú, el flujo de suscripción con planes de MP no permite crear el preapproval
+        //    vía API sin un card_token_id. Por eso usamos la URL de checkout del plan de MP
+        //    directamente: el usuario ingresa su tarjeta en la pasarela de MP.
+        //    El webhook activa la cuenta usando mp_payer_email como clave de matching.
         const mpPlanId = billing_period === 'monthly' ? plan.mp_plan_id_monthly : plan.mp_plan_id_yearly;
         if (!mpPlanId) {
             throw new BadRequestError(
@@ -130,48 +132,19 @@ const createCheckoutSession = async (payload) => {
             );
         }
 
-        const frontAppUrl = process.env.FRONT_BOOKING_APP || 'http://localhost:3010';
-
-        let mpResponse;
-        try {
-            const { client: mpClient } = require('../../../config/mercadopago');
-            const preapprovalClient = new PreApproval(mpClient);
-            mpResponse = await preapprovalClient.create({
-                body: {
-                    preapproval_plan_id: mpPlanId,
-                    payer_email:         email,
-                    back_url:            `${frontAppUrl}/checkout/success`,
-                    external_reference:  subscription.subscription_id.toString()
-                }
-            });
-        } catch (mpError) {
-            // Log completo del error de MP para diagnóstico ──────────────────────────────────
-            console.error('[MP Preapproval] Error completo:', JSON.stringify(mpError, Object.getOwnPropertyNames(mpError)));
-            const mpStatus  = mpError?.status  ?? 'N/A';
-            const mpCause   = mpError?.cause   ?? mpError?.message ?? mpError;
-            const mpMessage = Array.isArray(mpCause)
-                ? mpCause.map(c => `[${c.code}] ${c.description}`).join(' | ')
-                : String(mpCause);
-            console.error(`[MP Preapproval] HTTP ${mpStatus} — ${mpMessage}`);
-            throw new Error(`Hubo un error al conectar con la pasarela de pagos. Por favor, reintente en unos minutos.`);
-        }
-
-        // Si MercadoPago responde sin init_point, lanzar error para hacer rollback
-        if (!mpResponse || !mpResponse.init_point) {
-            throw new Error('No se pudo generar la URL de pago de MercadoPago.');
-        }
-
-        // Actualizar suscripción con el ID de MercadoPago
+        // Guardar el email del pagador para matching en el webhook ────────────────────────
         await subscription.update({
-            mp_preapproval_id: mpResponse.id,
             mp_payer_email: email
         }, { transaction });
 
-        // Commit de la transacción
+        // Commit antes de redirigir — los registros quedan en estado PENDING
         await transaction.commit();
 
+        // URL del plan de MercadoPago donde el usuario ingresa su tarjeta ─────────────────
+        const mpCheckoutUrl = `https://www.mercadopago.com.pe/subscriptions/checkout?preapproval_plan_id=${mpPlanId}`;
+
         return {
-            init_point: mpResponse.init_point,
+            init_point: mpCheckoutUrl,
             subscription_id: subscription.subscription_id
         };
 
