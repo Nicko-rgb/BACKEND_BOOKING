@@ -147,7 +147,8 @@ const createCheckoutSession = async (payload) => {
                 }
             });
         } catch (mpError) {
-            // Exponer el detalle real de la respuesta de MP para facilitar diagnóstico ─────────
+            // Log completo del error de MP para diagnóstico ──────────────────────────────────
+            console.error('[MP Preapproval] Error completo:', JSON.stringify(mpError, Object.getOwnPropertyNames(mpError)));
             const mpStatus  = mpError?.status  ?? 'N/A';
             const mpCause   = mpError?.cause   ?? mpError?.message ?? mpError;
             const mpMessage = Array.isArray(mpCause)
