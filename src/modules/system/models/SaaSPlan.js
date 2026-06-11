@@ -61,6 +61,17 @@ SaaSPlan.init({
     is_active: {
         type: DataTypes.BOOLEAN,
         defaultValue: true
+    },
+    // IDs de planes en MercadoPago — se usan para crear el Preapproval del cliente ──
+    mp_plan_id_monthly: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        comment: 'preapproval_plan_id del plan mensual en MercadoPago'
+    },
+    mp_plan_id_yearly: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        comment: 'preapproval_plan_id del plan anual en MercadoPago'
     }
 }, {
     sequelize,

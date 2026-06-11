@@ -121,10 +121,15 @@ const createCheckoutSession = async (payload) => {
             gateway: 'MERCADOPAGO'
         }, { transaction });
 
-        // 3. Llamar a la API de MercadoPago para generar la Suscripción Recurrente (Preapproval)
-        const price = billing_period === 'monthly' ? plan.price_monthly : plan.price_yearly;
-        const frequency = billing_period === 'monthly' ? 1 : 12;
-        const frequencyType = 'months'; // MercadoPago solo acepta 'days' o 'months' (no 'years')
+        // 3. Resolver el preapproval_plan_id de MercadoPago según el periodo de facturación ──
+        //    El plan en MP define el monto y frecuencia — no se envía auto_recurring
+        const mpPlanId = billing_period === 'monthly' ? plan.mp_plan_id_monthly : plan.mp_plan_id_yearly;
+        if (!mpPlanId) {
+            throw new BadRequestError(
+                `El plan "${plan.name}" (${billing_period === 'monthly' ? 'mensual' : 'anual'}) no tiene configurado un plan de pago en MercadoPago.`
+            );
+        }
+
         const frontAppUrl = process.env.FRONT_BOOKING_APP || 'http://localhost:3010';
 
         let mpResponse;
@@ -133,17 +138,10 @@ const createCheckoutSession = async (payload) => {
             const preapprovalClient = new PreApproval(mpClient);
             mpResponse = await preapprovalClient.create({
                 body: {
-                    reason: `Plan ${plan.name} (${billing_period === 'monthly' ? 'Mensual' : 'Anual'})`,
-                    payer_email: email,
-                    auto_recurring: {
-                        frequency: frequency,
-                        frequency_type: frequencyType,
-                        transaction_amount: Number(price),
-                        currency_id: 'PEN'
-                    },
-                    back_url: `${frontAppUrl}/checkout/success`,
-                    external_reference: subscription.subscription_id.toString()
-                    // Nota: no se envía 'status' — MP lo gestiona internamente al crear el preapproval
+                    preapproval_plan_id: mpPlanId,
+                    payer_email:         email,
+                    back_url:            `${frontAppUrl}/checkout/success`,
+                    external_reference:  subscription.subscription_id.toString()
                 }
             });
         } catch (mpError) {
@@ -155,7 +153,7 @@ const createCheckoutSession = async (payload) => {
                 ? mpCause.map(c => `[${c.code}] ${c.description}`).join(' | ')
                 : String(mpCause);
             console.error(`[MP Preapproval] HTTP ${mpStatus} — ${mpMessage}`);
-            throw new Error(`Hubo un error al conectar con la pasarela de pagos (${mpMessage}). Por favor, reintente en unos minutos.`);
+            throw new Error(`Hubo un error al conectar con la pasarela de pagos. Por favor, reintente en unos minutos.`);
         }
 
         // Si MercadoPago responde sin init_point, lanzar error para hacer rollback

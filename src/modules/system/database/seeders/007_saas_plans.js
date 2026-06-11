@@ -10,6 +10,9 @@ const { SaaSPlan } = require('../../models');
 
 const seedFn = async () => {
     
+    // Los mp_plan_id_monthly / mp_plan_id_yearly corresponden a los
+    // "Planes de suscripción" creados en el dashboard de MercadoPago Perú.
+    // Deben coincidir con los precios configurados en MP para mantener coherencia.
     const plansToSeed = [
         {
             name: 'Emprendedor',
@@ -26,7 +29,9 @@ const seedFn = async () => {
                 'Dashboard básico',
                 'Soporte por email'
             ],
-            is_active: true
+            is_active: true,
+            mp_plan_id_monthly: '78705adcc0a64e2c8e3657416a6a3293', // Emprendedor Mensual en MP
+            mp_plan_id_yearly:  'b67c82d7efe441d7a0fa5ce92d7f44c0'  // Emprendedor Anual en MP
         },
         {
             name: 'Profesional',
@@ -45,7 +50,9 @@ const seedFn = async () => {
                 'Notificaciones automáticas',
                 'Soporte prioritario'
             ],
-            is_active: true
+            is_active: true,
+            mp_plan_id_monthly: 'bb98479720a649948ffc5fb347fed4d3', // Profesional Mensual en MP
+            mp_plan_id_yearly:  '2d5bc738c8ed45cea2c6ca04a5e999ae'                                  // Profesional Anual en MP
         },
         {
             name: 'Corporativo',
@@ -63,7 +70,9 @@ const seedFn = async () => {
                 'Multi-Empresa bajo un solo login',
                 'Account Manager 24/7'
             ],
-            is_active: true
+            is_active: true,
+            mp_plan_id_monthly: null, // ENTERPRISE se gestiona por contacto directo, sin MP
+            mp_plan_id_yearly:  null
         }
     ];
 
