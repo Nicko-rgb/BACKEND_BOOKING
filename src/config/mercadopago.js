@@ -1,8 +1,8 @@
-const { MercadoPagoConfig, PreApproval, PreApprovalPlan } = require('mercadopago');
+const { MercadoPagoConfig, Payment } = require('mercadopago');
 
 const client = new MercadoPagoConfig({
     accessToken: process.env.MP_ACCESS_TOKEN,
     options: { timeout: 10000 }
 });
 
-module.exports = { client, PreApproval, PreApprovalPlan };
+module.exports = { client, Payment };

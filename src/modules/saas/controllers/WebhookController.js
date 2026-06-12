@@ -1,10 +1,7 @@
 const webhookHandler = require('../handlers/WebhookHandler');
 
-const handleWebhook = async (req, res, next) => {
-    await webhookHandler.handleWebhook(req, res);
+const handleWebhook = async (req, res) => {
+    await webhookHandler.handleWebhook(res, req.body);
 };
 
-module.exports = {
-    handleWebhook
-};
-
+module.exports = { handleWebhook };

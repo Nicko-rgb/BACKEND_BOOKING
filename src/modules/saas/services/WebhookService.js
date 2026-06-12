@@ -1,163 +1,98 @@
-const { Op } = require('sequelize');
 const sequelize = require('../../../config/db');
 const { SaaSSubscription } = require('../../system/models');
 const { Company } = require('../../facility/models');
 const { User } = require('../../users/models');
-const { PreApproval } = require('../../../config/mercadopago');
+const { client: mpClient, Payment } = require('../../../config/mercadopago');
 const { sendWelcomeSaaSClientEmail } = require('../../../shared/utils/mailer');
 
+/** Calcula la fecha de fin del período (igual que en SaaSCheckoutService) */
+const calcEndDate = (from, billingPeriod) => {
+    const end = new Date(from);
+    billingPeriod === 'yearly'
+        ? end.setFullYear(end.getFullYear() + 1)
+        : end.setMonth(end.getMonth() + 1);
+    return end;
+};
+
 const handleWebhook = async (payload) => {
-    // 1. Extraer datos básicos
-    const { action, type, data } = payload;
-    
-    // Solo nos interesan los eventos sobre suscripciones recurrentes
-    if (type !== 'subscription_preapproval' && type !== 'preapproval') {
+    const { type, data } = payload;
+
+    // Solo procesamos eventos de pago único
+    if (type !== 'payment') {
         console.log(`[MP Webhook] Evento ignorado. Tipo: ${type}`);
         return { success: true, ignored: true };
     }
 
-    const preapprovalId = data?.id;
-    if (!preapprovalId) {
-        console.warn('[MP Webhook] No se encontró el ID del preapproval en la data.');
+    const paymentId = data?.id;
+    if (!paymentId) {
+        console.warn('[MP Webhook] No se encontró ID de pago en la data.');
         return { success: false, error: 'No data ID' };
     }
 
-    console.log(`[MP Webhook] Procesando suscripción de MP: ${preapprovalId} (${action})`);
+    console.log(`[MP Webhook] Procesando pago: ${paymentId}`);
 
-    // 2. Consultar el estado real de la suscripción en la API de MercadoPago (evitar fraudes)
+    // Consultar el estado real del pago en MP para evitar fraudes ─────────────────────────
     let mpData;
     try {
-        const preapprovalClient = new PreApproval(require('../../../config/mercadopago').client);
-        mpData = await preapprovalClient.get({ id: preapprovalId });
+        mpData = await new Payment(mpClient).get({ id: paymentId });
     } catch (mpError) {
-        console.error(`[MP Webhook] Error al consultar preapproval ${preapprovalId} en MP:`, mpError);
-        throw mpError; // Lanzamos error para que Express retorne 500 y MP reintente
+        console.error(`[MP Webhook] Error al consultar pago ${paymentId}:`, mpError);
+        throw mpError; // Relanzar para que MP reintente el webhook
     }
 
-    if (!mpData) {
-        console.warn(`[MP Webhook] No se encontró información en MP para el ID: ${preapprovalId}`);
-        return { success: false, error: 'Not found in MercadoPago' };
-    }
-
-    // 3. Buscar la suscripción en la BD ────────────────────────────────────────────────────
-    //    Flujo con plan de MP (redirect): el checkout no crea preapproval vía API, por lo
-    //    que no hay external_reference. Se hace matching por mp_payer_email (email del checkout).
-    let subscription = null;
-
-    const externalRef = mpData.external_reference;
-    const payerEmail  = mpData.payer?.email;
-
-    if (externalRef) {
-        // Matching directo por external_reference (flujo legado o futuro con card token)
-        subscription = await SaaSSubscription.findByPk(externalRef);
-    } else if (payerEmail) {
-        // Matching por email del pagador — solo tomamos suscripciones PENDING para evitar
-        // activar una ya activa si el usuario tiene otro intento previo
-        subscription = await SaaSSubscription.findOne({
-            where: {
-                mp_payer_email: payerEmail,
-                status: { [Op.in]: ['PENDING'] }
-            },
-            order: [['created_at', 'DESC']] // La más reciente si hubiera más de una
-        });
-    }
-
-    if (!subscription) {
-        console.warn(`[MP Webhook] No se encontró suscripción PENDING para preapproval ${preapprovalId} (email: ${payerEmail}, ref: ${externalRef})`);
+    // Solo nos interesa activar cuando el pago es aprobado ────────────────────────────────
+    if (mpData.status !== 'approved') {
+        console.log(`[MP Webhook] Pago ${paymentId} en estado "${mpData.status}". Ignorado.`);
         return { success: true, ignored: true };
     }
 
-    // Guardar el mp_preapproval_id en la suscripción si aún no lo tiene
-    if (!subscription.mp_preapproval_id) {
-        await subscription.update({ mp_preapproval_id: preapprovalId });
+    // Buscar suscripción PENDING por external_reference ───────────────────────────────────
+    // El checkout ya activa síncronamente si el pago se aprueba de inmediato.
+    // Este webhook cubre el caso donde el pago quedó en 'pending' y luego se aprueba.
+    const subscription = await SaaSSubscription.findOne({
+        where: { subscription_id: mpData.external_reference, status: 'PENDING' }
+    });
+
+    if (!subscription) {
+        console.log(`[MP Webhook] No hay suscripción PENDING para pago ${paymentId}. Posiblemente ya activada.`);
+        return { success: true, ignored: true };
     }
 
-    const status = mpData.status; // 'pending', 'authorized', 'paused', 'cancelled'
-    console.log(`[MP Webhook] Estado en MercadoPago para suscripción ${subscriptionId}: ${status}`);
-
+    // Activar la cuenta ────────────────────────────────────────────────────────────────────
     const transaction = await sequelize.transaction();
-
     try {
-        if (status === 'authorized' || status === 'active') {
-            // Activar la suscripción
-            const now = new Date();
-            const endDate = new Date();
-            
-            // Calcular endDate según frecuencia del plan en MP ────────────────────────────
-            const frequency     = mpData.auto_recurring?.frequency      ?? 1;
-            const frequencyType = mpData.auto_recurring?.frequency_type ?? 'months';
-            if (frequencyType === 'months') {
-                endDate.setMonth(now.getMonth() + frequency);
-            } else if (frequencyType === 'days') {
-                endDate.setDate(now.getDate() + frequency);
-            } else {
-                endDate.setFullYear(now.getFullYear() + 1); // Fallback anual
-            }
+        const now = new Date();
+        await subscription.update({
+            mp_payment_id:        String(paymentId),
+            status:               'ACTIVE',
+            current_period_start: now,
+            current_period_end:   calcEndDate(now, subscription.billing_period || 'monthly')
+        }, { transaction });
 
-            await subscription.update({
-                status: 'ACTIVE',
-                current_period_start: now,
-                current_period_end: endDate
-            }, { transaction });
+        const company = await Company.findByPk(subscription.company_id);
+        if (company) {
+            await company.update({ status: 'ACTIVE', is_enabled: 'A' }, { transaction });
 
-            // Activar Compañía
-            const company = await Company.findByPk(subscription.company_id);
-            if (company) {
-                await company.update({
-                    status: 'ACTIVE',
-                    is_enabled: 'A' // 'A' = Habilitada
-                }, { transaction });
+            if (company.user_create) {
+                const owner = await User.findByPk(company.user_create);
+                if (owner) {
+                    await owner.update({ is_enabled: true }, { transaction });
 
-                // Activar Usuario(s) de tipo super_admin en esta compañía
-                // Como es una empresa nueva, el user_create es el super_admin original
-                if (company.user_create) {
-                    const owner = await User.findByPk(company.user_create);
-                    if (owner) {
-                        await owner.update({ is_enabled: true }, { transaction });
-                        
-                        // Enviar email de bienvenida de forma asíncrona (no bloquea la transacción)
-                        sendWelcomeSaaSClientEmail(owner.email, `${owner.first_name} ${owner.last_name}`, company.name)
-                            .catch(err => console.error('[MP Webhook] Error al enviar correo de bienvenida:', err));
-                    }
+                    sendWelcomeSaaSClientEmail(owner.email, `${owner.first_name} ${owner.last_name}`, company.name)
+                        .catch(err => console.error('[MP Webhook] Error al enviar correo de bienvenida:', err));
                 }
             }
-
-            console.log(`[MP Webhook] Suscripción ${subscriptionId} y compañía ${subscription.company_id} activadas correctamente.`);
-
-        } else if (status === 'cancelled' || status === 'paused') {
-            // Cancelar la suscripción en nuestra BD
-            await subscription.update({
-                status: status === 'cancelled' ? 'CANCELED' : 'PAST_DUE'
-            }, { transaction });
-
-            // Deshabilitar la compañía
-            const company = await Company.findByPk(subscription.company_id);
-            if (company) {
-                await company.update({
-                    is_enabled: 'I' // 'I' = Inactiva
-                }, { transaction });
-
-                // Deshabilitar el owner
-                if (company.user_create) {
-                    const owner = await User.findByPk(company.user_create);
-                    if (owner) {
-                        await owner.update({ is_enabled: false }, { transaction });
-                    }
-                }
-            }
-            console.log(`[MP Webhook] Suscripción ${subscriptionId} cancelada/pausada en BD.`);
         }
 
         await transaction.commit();
+        console.log(`[MP Webhook] Suscripción ${subscription.subscription_id} activada por webhook.`);
         return { success: true };
 
     } catch (error) {
         await transaction.rollback();
-        console.error(`[MP Webhook] Error al aplicar cambios en BD para suscripción ${subscriptionId}:`, error);
+        console.error(`[MP Webhook] Error al activar suscripción ${subscription.subscription_id}:`, error);
         throw error;
     }
 };
 
-module.exports = {
-    handleWebhook
-};
+module.exports = { handleWebhook };

@@ -2,188 +2,176 @@ const bcrypt = require('bcryptjs');
 const { randomUUID } = require('crypto');
 const sequelize = require('../../../config/db');
 
-// Importar modelos locales de system y otros módulos
 const { SaaSPlan, SaaSSubscription } = require('../../system/models');
 const { Company } = require('../../facility/models');
 const { User, Person, UserCompany, UserPermission } = require('../../users/models');
 const { DEFAULT_PERMISSIONS } = require('../../system/constants/permissionsConstants');
-const { PreApproval } = require('../../../config/mercadopago');
+const { client: mpClient, Payment } = require('../../../config/mercadopago');
+const { sendWelcomeSaaSClientEmail } = require('../../../shared/utils/mailer');
 const { ConflictError, BadRequestError } = require('../../../shared/errors/CustomErrors');
+
+/** Calcula la fecha de fin del período según el tipo de facturación */
+const calcEndDate = (from, billingPeriod) => {
+    const end = new Date(from);
+    billingPeriod === 'yearly'
+        ? end.setFullYear(end.getFullYear() + 1)
+        : end.setMonth(end.getMonth() + 1);
+    return end;
+};
 
 const createCheckoutSession = async (payload) => {
     const {
-        plan_id,
-        billing_period,
-        company_name,
-        company_document,
-        company_address,
-        company_phone,
-        country_id,
-        ubigeo_id,
-        first_name,
-        last_name,
-        email,
-        password,
-        owner_phone,
-        card_token_id   // Token de tarjeta generado por MercadoPago Bricks en el frontend
+        plan_id, billing_period,
+        company_name, company_document, company_address, company_phone,
+        country_id, ubigeo_id,
+        first_name, last_name, email, password, owner_phone,
+        card_token_id, payment_method_id, installments
     } = payload;
 
-    // 1. Validaciones previas
+    // 1. Validaciones previas ──────────────────────────────────────────────────────────────
     const plan = await SaaSPlan.findOne({ where: { plan_id, is_active: true } });
-    if (!plan) {
-        throw new BadRequestError('El plan seleccionado no existe o no está activo.');
-    }
+    if (!plan) throw new BadRequestError('El plan seleccionado no existe o no está activo.');
 
-    // Validar correo único
-    const userExists = await User.findOne({ where: { email } });
-    if (userExists) {
+    if (await User.findOne({ where: { email } })) {
         throw new ConflictError('Ya existe un usuario registrado con este correo electrónico.');
     }
 
-    // Validar RUC/Documento único de empresa principal
-    const companyExists = await Company.findOne({ 
-        where: { 
-            document: company_document,
-            parent_company_id: null 
-        } 
-    });
-    if (companyExists) {
+    if (await Company.findOne({ where: { document: company_document, parent_company_id: null } })) {
         throw new ConflictError('Ya existe una empresa registrada con este número de documento.');
     }
 
-    const tenantId = randomUUID();
+    const planPrice      = billing_period === 'yearly' ? Number(plan.price_yearly) : Number(plan.price_monthly);
+    const tenantId       = randomUUID();
     const hashedPassword = await bcrypt.hash(password, 10);
-    
-    // 2. Iniciar Transacción de BD
+
+    // 2. Transacción de BD ─────────────────────────────────────────────────────────────────
     const transaction = await sequelize.transaction();
 
     try {
-        // Crear Usuario (owner) inactivo
         const newUser = await User.create({
-            first_name,
-            last_name,
-            email,
+            first_name, last_name, email,
             password: hashedPassword,
             role: 'super_admin',
             is_enabled: false
         }, { transaction });
 
-        // Crear registro en Person si viene algún dato
         await Person.create({
-            user_id: newUser.user_id,
-            country_id: country_id,
-            phone: owner_phone || company_phone,
-            address: company_address
+            user_id:    newUser.user_id,
+            country_id,
+            phone:      owner_phone || company_phone,
+            address:    company_address
         }, { transaction });
 
-        // Asignar permisos iniciales de super_admin
         const defaultPerms = DEFAULT_PERMISSIONS['super_admin'] || [];
         if (defaultPerms.length > 0) {
             await UserPermission.bulkCreate(
                 defaultPerms.map(key => ({
-                    user_id: newUser.user_id,
+                    user_id:        newUser.user_id,
                     permission_key: key,
-                    granted_by: newUser.user_id
+                    granted_by:     newUser.user_id
                 })),
                 { ignoreDuplicates: true, transaction }
             );
         }
 
-        // Crear Empresa principal en estado PENDING y vinculada al usuario
         const newCompany = await Company.create({
-            name: company_name,
-            address: company_address,
-            document: company_document,
-            phone_cell: company_phone,
+            name:              company_name,
+            address:           company_address,
+            document:          company_document,
+            phone_cell:        company_phone,
             country_id,
             ubigeo_id,
-            tenant_id: tenantId,
+            tenant_id:         tenantId,
             parent_company_id: null,
-            status: 'INACTIVE',
-            is_enabled: 'P', // 'P' = Pending
-            user_create: newUser.user_id,
-            user_update: newUser.user_id
+            status:            'INACTIVE',
+            is_enabled:        'P',
+            user_create:       newUser.user_id,
+            user_update:       newUser.user_id
         }, { transaction });
 
-        // Asociar usuario a la compañía
         await UserCompany.create({
-            user_id: newUser.user_id,
+            user_id:    newUser.user_id,
             company_id: newCompany.company_id,
-            role: 'super_admin',
-            tenant_id: tenantId,
-            is_active: true
+            role:       'super_admin',
+            tenant_id:  tenantId,
+            is_active:  true
         }, { transaction });
 
-        // Crear la Suscripción en estado PENDING
         const subscription = await SaaSSubscription.create({
-            company_id: newCompany.company_id,
-            plan_id: plan.plan_id,
-            status: 'PENDING',
-            gateway: 'MERCADOPAGO'
+            company_id:     newCompany.company_id,
+            plan_id:        plan.plan_id,
+            billing_period,
+            status:         'PENDING',
+            gateway:        'MERCADOPAGO'
         }, { transaction });
 
-        // 3. Crear Preapproval en MercadoPago ─────────────────────────────────────────────
-        //    El card_token_id viene del MercadoPago Brick del frontend.
-        //    El preapproval_plan_id enlaza con el plan de suscripción creado en el dashboard de MP.
-        const mpPlanId = billing_period === 'monthly' ? plan.mp_plan_id_monthly : plan.mp_plan_id_yearly;
-        if (!mpPlanId) {
-            throw new BadRequestError(
-                `El plan "${plan.name}" (${billing_period === 'monthly' ? 'mensual' : 'anual'}) no tiene configurado un plan de pago en MercadoPago.`
-            );
-        }
-
+        // 3. Cobrar con MercadoPago ────────────────────────────────────────────────────────
+        const backendUrl  = process.env.BACKEND_URL || 'https://api.redepor.com';
         const frontAppUrl = process.env.FRONT_BOOKING_APP || 'http://localhost:3010';
 
         let mpResponse;
         try {
-            const { client: mpClient } = require('../../../config/mercadopago');
-            const preapprovalClient = new PreApproval(mpClient);
-            const backendUrl = process.env.BACKEND_URL || process.env.BACK_URL || 'https://api.redepor.com';
-            mpResponse = await preapprovalClient.create({
+            mpResponse = await new Payment(mpClient).create({
                 body: {
-                    preapproval_plan_id: mpPlanId,
-                    card_token_id,
-                    payer_email:        email,
+                    transaction_amount: planPrice,
+                    token:              card_token_id,
+                    payment_method_id,
+                    installments:       Number(installments) || 1,
+                    description:        `${plan.name} — ${billing_period === 'yearly' ? 'Anual' : 'Mensual'}`,
+                    payer:              { email },
                     external_reference: subscription.subscription_id.toString(),
-                    back_url:           `${frontAppUrl}/checkout/success`,
-                    // notification_url garantiza que MP envíe el webhook a este endpoint
-                    // independientemente de la configuración en el dashboard de MP
-                    notification_url:   `${backendUrl}/api/v1/saas-webhooks/webhook`
+                    notification_url:   `${backendUrl}/api/v1/saas-webhooks/webhook`,
+                    back_url:           `${frontAppUrl}/checkout/success`
                 }
             });
         } catch (mpError) {
-            const mpStatus  = mpError?.status  ?? 'N/A';
-            const mpCause   = mpError?.cause   ?? mpError?.message ?? mpError;
-            const mpMessage = Array.isArray(mpCause)
-                ? mpCause.map(c => `[${c.code}] ${c.description}`).join(' | ')
-                : String(mpCause);
-            // Log completo para depuración en producción
-            console.error(`[MP Preapproval] HTTP ${mpStatus} — ${mpMessage}`);
-            console.error('[MP Preapproval] Full error:', JSON.stringify(mpError, Object.getOwnPropertyNames(mpError)));
-
-            // Mensaje específico para validación de tarjeta
-            const isCardValidation = mpMessage.includes('CC_VAL_433') || mpMessage.includes('card validation');
-            const userMessage = isCardValidation
-                ? 'La tarjeta fue rechazada para suscripciones recurrentes. Use una tarjeta de crédito habilitada para pagos recurrentes e intente nuevamente.'
-                : 'Hubo un error al procesar el pago. Por favor verifique los datos de su tarjeta e intente nuevamente.';
-            throw new Error(userMessage);
+            const cause   = mpError?.cause ?? mpError?.message ?? mpError;
+            const message = Array.isArray(cause)
+                ? cause.map(c => `[${c.code}] ${c.description}`).join(' | ')
+                : String(cause);
+            console.error(`[MP Payment] HTTP ${mpError?.status ?? 'N/A'} — ${message}`);
+            throw new Error('Hubo un error al procesar el pago. Verifique los datos de su tarjeta e intente nuevamente.');
         }
 
-        if (!mpResponse?.id) {
-            throw new Error('MercadoPago no devolvió una suscripción válida.');
+        if (!mpResponse?.id) throw new Error('MercadoPago no devolvió una respuesta válida.');
+
+        const mpStatus = mpResponse.status;
+        console.log(`[MP Payment] ID ${mpResponse.id} — Estado: ${mpStatus}`);
+
+        // Pago rechazado — no se activa la cuenta
+        if (mpStatus === 'rejected') {
+            const detail = mpResponse.status_detail || 'rejected';
+            throw new Error(`El pago fue rechazado (${detail}). Verifique los datos de su tarjeta e intente nuevamente.`);
         }
 
-        // Actualizar suscripción con el ID y email del pagador en MP ──────────────────────
-        await subscription.update({
-            mp_preapproval_id: mpResponse.id,
-            mp_payer_email:    email
-        }, { transaction });
+        // Guardar referencia del pago ──────────────────────────────────────────────────────
+        await subscription.update({ mp_payment_id: mpResponse.id, mp_payer_email: email }, { transaction });
 
-        await transaction.commit();
+        // 4. Activar inmediatamente si el pago fue aprobado ───────────────────────────────
+        if (mpStatus === 'approved') {
+            const now = new Date();
+            await subscription.update({
+                status:               'ACTIVE',
+                current_period_start: now,
+                current_period_end:   calcEndDate(now, billing_period)
+            }, { transaction });
+
+            await newCompany.update({ status: 'ACTIVE', is_enabled: 'A' }, { transaction });
+            await newUser.update({ is_enabled: true }, { transaction });
+
+            await transaction.commit();
+
+            sendWelcomeSaaSClientEmail(email, `${first_name} ${last_name}`, company_name)
+                .catch(err => console.error('[MP Payment] Error al enviar correo de bienvenida:', err));
+
+        } else {
+            // 'pending' — el webhook activará la cuenta cuando MP confirme el pago
+            await transaction.commit();
+        }
 
         return {
             subscription_id: subscription.subscription_id,
-            mp_status:        mpResponse.status   // 'authorized' | 'pending' | etc.
+            mp_status:        mpStatus
         };
 
     } catch (error) {
@@ -192,6 +180,4 @@ const createCheckoutSession = async (payload) => {
     }
 };
 
-module.exports = {
-    createCheckoutSession
-};
+module.exports = { createCheckoutSession };

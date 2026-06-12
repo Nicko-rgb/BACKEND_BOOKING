@@ -63,6 +63,11 @@ SaaSSubscription.init({
         allowNull: true,
         comment: 'ID de la Suscripción de Stripe'
     },
+    billing_period: {
+        type: DataTypes.STRING(10),
+        allowNull: true,
+        comment: "'monthly' | 'yearly'"
+    },
     // ── MercadoPago ─────────────────────────────────────────────────────────
     gateway: {
         type: DataTypes.STRING(30),
@@ -70,10 +75,10 @@ SaaSSubscription.init({
         defaultValue: 'STRIPE',
         comment: "Pasarela activa: 'STRIPE' | 'MERCADOPAGO'"
     },
-    mp_preapproval_id: {
+    mp_payment_id: {
         type: DataTypes.STRING(100),
         allowNull: true,
-        comment: 'ID del Preapproval en MercadoPago'
+        comment: 'ID del pago en MercadoPago (POST /v1/payments)'
     },
     mp_payer_email: {
         type: DataTypes.STRING(100),
