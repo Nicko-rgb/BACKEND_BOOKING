@@ -106,8 +106,7 @@ const createCheckoutSession = async (payload) => {
         }, { transaction });
 
         // 3. Cobrar con MercadoPago ────────────────────────────────────────────────────────
-        const backendUrl  = process.env.BACKEND_URL || 'https://api.redepor.com';
-        const frontAppUrl = process.env.FRONT_BOOKING_APP || 'http://localhost:3010';
+        const backendUrl = process.env.BACKEND_URL || 'https://api.redepor.com';
 
         let mpResponse;
         try {
@@ -120,8 +119,7 @@ const createCheckoutSession = async (payload) => {
                     description:        `${plan.name} — ${billing_period === 'yearly' ? 'Anual' : 'Mensual'}`,
                     payer:              { email },
                     external_reference: subscription.subscription_id.toString(),
-                    notification_url:   `${backendUrl}/api/v1/saas-webhooks/webhook`,
-                    back_url:           `${frontAppUrl}/checkout/success`
+                    notification_url:   `${backendUrl}/api/v1/saas-webhooks/webhook`
                 }
             });
         } catch (mpError) {
