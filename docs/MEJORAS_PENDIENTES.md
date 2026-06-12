@@ -277,6 +277,43 @@ if (isBlacklisted) throw new UnauthorizedError('Token revocado');
 
 ---
 
+### 12.1 ❌ Reconciliación de pagos MercadoPago (doble cobro sin reserva)
+
+**Archivos:** `src/modules/booking/strategies/YapeMercadoPagoStrategy.js`, `src/modules/booking/services/BookingService.js`, `src/modules/saas/services/SaaSCheckoutService.js`
+**Aplica a:** pago YAPE de reservas **y** checkout SaaS (ambos comparten el mismo patrón).
+
+**Problema:** la llamada de cobro a MercadoPago ocurre **dentro** de la transacción de BD. Si MP aprueba el cobro (plata ya movida, irreversible) pero **algo entre la respuesta de MP y el `commit` falla** (caída de Postgres, timeout, reinicio del proceso, deadlock), Sequelize hace `rollback` y borra la reserva/suscripción. El cliente queda **cobrado, sin reserva y sin registro**.
+
+```
+abrir transacción
+  ├─ crear Booking (PENDING)
+  ├─ MercadoPago.create()   ← cobra plata real (irreversible)
+  ├─ crear PaymentBooking
+  └─ commit                 ← si falla AQUÍ → rollback borra todo, pero MP ya cobró
+```
+
+El webhook **no rescata** este caso: busca el `PaymentBooking` por `external_reference`, pero el rollback lo borró → no encuentra nada → ignora.
+
+**Probabilidad:** baja (ventana de milisegundos entre la respuesta de MP y el commit), pero impacto = dinero real del cliente.
+
+**Solución — patrón "intención de pago" (registrar antes de cobrar):**
+
+```
+Transacción 1:  crear PaymentBooking en estado 'PROCESSING' con external_reference  → commit
+Llamar a MercadoPago
+Transacción 2:  actualizar a 'PAID' / 'CONFIRMED'                                    → commit
+Si la Tx2 falla → el registro queda 'PROCESSING'; el webhook (que ahora SÍ lo encuentra)
+                  o un job de reconciliación confirma la reserva o dispara reembolso.
+```
+
+Esto elimina la ventana por completo a costa de más complejidad. No bloquea el lanzamiento (volumen actual bajo), pero es el camino correcto al crecer.
+
+**Riesgos menores relacionados (YAPE MP), documentados en `docs/PLAN_YAPE_MP.md`:**
+- `notification_url` debe ser pública/HTTPS — MP rechaza `localhost` (usar túnel en dev).
+- `comision_aplicada = 0` para YAPE: MP cobra ~2-3% en su lado; configurar `commission_percentage` en el seed si se quiere trasladar al cliente.
+
+---
+
 ## 🟡 MEDIO — Excelencia operacional
 
 ### 13. ❌ Sin error tracking (Sentry o similar)
@@ -374,11 +411,12 @@ process.on('SIGTERM', async () => {
 - [ ] Refresh token mechanism — access token 15min + refresh token 7 días en cookie httpOnly
 - [X] Índice `payment_id` en modelo Booking — `src/modules/booking/models/Booking.js`
 - [X] Caching con Redis para catálogos — todos los `*CatalogService.js`
+- [ ] Reconciliación de pagos MercadoPago (doble cobro sin reserva) — patrón "intención de pago" en YAPE booking + checkout SaaS
 
 ### Medio
 
 - [X] Integrar Sentry (error tracking) — `server.js` + `GlobalErrorHandler.js` (requiere `SENTRY_DSN` en .env)
-- [X] Guard contra `DB_FORCE_SYNC` en producción — `server.js inicializarBaseDatos()`
+- [X] Riesgo `DB_FORCE_SYNC` eliminado por diseño — el arranque ya no usa `sequelize.sync()`, solo `runPendingMigrations()` (migraciones versionadas). Las flags `DB_FORCE_SYNC`/`DB_ALTER_SYNC` ya no existen. (No hay "guard" explícito; el peligro desapareció al quitar el sync.)
 - [X] Graceful shutdown completo — `server.js gracefulShutdown()` (cierra DB + Redis + timeout 15s)
 
 ### Arquitectura

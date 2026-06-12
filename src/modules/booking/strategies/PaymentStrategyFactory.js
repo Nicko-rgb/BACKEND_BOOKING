@@ -10,7 +10,8 @@
  *   const result = await strategy.process(data, bookings, transaction, sucursalConfig, paymentType);
  */
 const CashPaymentStrategy = require('./CashPaymentStrategy');
-const YapePaymentStrategy = require('./YapePaymentStrategy');
+// Yape ahora se cobra automáticamente vía MercadoPago (el manual quedó deprecado)
+const YapeMercadoPagoStrategy = require('./YapeMercadoPagoStrategy');
 const PlinPaymentStrategy = require('./PlinPaymentStrategy');
 const BankTransferPaymentStrategy = require('./BankTransferPaymentStrategy');
 const CardOnlinePaymentStrategy = require('./CardOnlinePaymentStrategy');
@@ -19,7 +20,7 @@ const { BadRequestError } = require('../../../shared/errors/CustomErrors');
 // Mapa de código → instancia de estrategia (singleton por estrategia)
 const STRATEGIES = {
     CASH:          new CashPaymentStrategy(),
-    YAPE:          new YapePaymentStrategy(),
+    YAPE:          new YapeMercadoPagoStrategy(),
     PLIN:          new PlinPaymentStrategy(),
     BANK_TRANSFER: new BankTransferPaymentStrategy(),
     CARD_ONLINE:   new CardOnlinePaymentStrategy(),

@@ -34,6 +34,7 @@ const indexCatalogsRoute = require('./src/modules/system/routes/indexCatalogsRou
 const catalogsAdminRoute = require('./src/modules/system/routes/catalogsAdminRoute');
 const bookingRoutes = require('./src/modules/booking/routes/bookingRoutes');
 const paymentBookingRoutes = require('./src/modules/booking/routes/paymentBookingRoutes');
+const bookingWebhookRoutes = require('./src/modules/booking/routes/bookingWebhookRoutes');
 const mediaRoutes = require('./src/modules/media/routes/mediaRoutes');
 const inicioRoutes = require('./src/modules/reports/routes/inicioRoutes');
 const plansRoutes = require('./src/modules/system/routes/plansRoutes');
@@ -175,6 +176,9 @@ app.use('/api/system/plans', plansRoutes);
 // ── Módulo SaaS (MercadoPago) ──────────────────────────────────────────────────
 app.use('/api/v1/saas', saasRoutes);
 app.use('/api/v1/saas-webhooks', webhookRoutes);
+
+// ── Webhook de pagos Yape de reservas (MercadoPago) ─────────────────────────────
+app.use('/api/v1/booking-webhooks', bookingWebhookRoutes);
 
 // ── Reportes / Página de inicio ─────────────────────────────────────────────
 app.use('/api/reports', inicioRoutes);

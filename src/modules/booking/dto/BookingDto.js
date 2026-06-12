@@ -141,10 +141,14 @@ const createReservationDto = Joi.object({
     //   BANK:        { operation_number: '123456', payment_proof: 'url_o_base64' }
     payment_details: Joi.object({
         payment_intent_id: Joi.string().optional(),   // Stripe
-        operation_number: Joi.string().optional(),    // YAPE / PLIN / BANK
+        operation_number: Joi.string().optional(),    // PLIN / BANK
         payment_proof: Joi.string().optional(),       // URL o base64 del comprobante
         proof_url: Joi.string().uri().optional(),     // Alternativa URL
-        yape_operation_number: Joi.string().optional(),
+        // ── Yape vía MercadoPago (cobro automático) ───────────────────────────
+        yape_token: Joi.string().optional(),          // Token de un solo uso generado en el frontend (sdk-js)
+        yape_phone: Joi.string().pattern(/^9\d{8}$/).optional(), // Celular Yape del pagador (referencial)
+        yape_email: Joi.string().email({ tlds: { allow: false } }).optional(), // Email del pagador para MP
+        // ── Manuales (legacy) ─────────────────────────────────────────────────
         plin_operation_number: Joi.string().optional(),
         transfer_operation_number: Joi.string().optional(),
     }).optional().unknown(true),

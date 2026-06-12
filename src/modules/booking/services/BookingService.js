@@ -201,10 +201,12 @@ class BookingService {
             const strategy = PaymentStrategyFactory.resolve(effectivePaymentCode);
             await strategy.validate(data, enrichedConfig);
 
-            // ── FASE 6: Determinar estado de la reserva ──────────────────────────────
+            // ── FASE 6: Determinar estado inicial de la reserva ──────────────────────
             // CASH por el cliente → PENDING hasta que admin confirme
             // Admin crea → CONFIRMED directamente
-            // YAPE / PLIN / BANK_TRANSFER → PENDING hasta que admin confirme
+            // YAPE (MercadoPago) / PLIN / BANK_TRANSFER → se crean PENDING.
+            //   · YAPE_MP se promueve a CONFIRMED en la Fase 8.1 si el cobro es aprobado.
+            //   · PLIN / BANK_TRANSFER esperan la confirmación manual del admin.
             // CARD_ONLINE (Stripe verificado) → CONFIRMED directamente
             const isPendingMethod = ['CASH', 'YAPE', 'PLIN', 'BANK_TRANSFER'].includes(effectivePaymentCode);
             const bookingStatus = (isPendingMethod && !is_admin_create) ? 'PENDING' : 'CONFIRMED';
@@ -239,6 +241,19 @@ class BookingService {
                 enrichedConfig,
                 paymentTypeRecord
             );
+
+            // ── FASE 8.1: Reconciliar estado de las reservas con el resultado del pago ──
+            // Los gateways online automáticos (YAPE_MP) crean las reservas en PENDING
+            // y solo se confirman si el cobro fue aprobado (status PAID). Si MP devuelve
+            // PENDING (in_process), las reservas siguen PENDING y el webhook las confirma.
+            let finalBookingStatus = bookingStatus;
+            if (paymentResult.status === 'PAID' && bookingStatus !== 'CONFIRMED') {
+                finalBookingStatus = 'CONFIRMED';
+                await Booking.update(
+                    { status: 'CONFIRMED', confirmed_at: new Date() },
+                    { where: { booking_id: createdBookings.map(b => b.booking_id) }, transaction }
+                );
+            }
 
             const amountToCharge = paymentResult.amount
                 || total_amount
@@ -303,7 +318,7 @@ class BookingService {
                     : String(createdBookings[0].booking_date).split('T')[0];
                 const room = `space:${spaceId}:${bookingDate}`;
 
-                if (bookingStatus === 'PENDING') {
+                if (finalBookingStatus === 'PENDING') {
                     io.to(room).emit('booking:pending', { booking_date: bookingDate, bookings: bkgs });
                 } else {
                     io.to(room).emit('booking:confirmed', { booking_date: bookingDate, bookings: bkgs });
@@ -336,7 +351,9 @@ class BookingService {
      * Solo aplica para métodos que requieren acción del cliente (YAPE, PLIN, BANK_TRANSFER).
      */
     _buildPaymentInstructions(code, paymentResult, sucursalConfig) {
-        if (!['YAPE', 'PLIN', 'BANK_TRANSFER'].includes(code)) return null;
+        // YAPE ya no aparece: el cobro vía MercadoPago es automático y no requiere
+        // instrucciones manuales (número/QR). Solo PLIN y BANK_TRANSFER siguen siendo manuales.
+        if (!['PLIN', 'BANK_TRANSFER'].includes(code)) return null;
 
         const { gatewayResponse } = paymentResult;
         if (!gatewayResponse) return null;
@@ -345,11 +362,6 @@ class BookingService {
             method: code,
             instructions: gatewayResponse.instructions || null,
             // Datos específicos por método
-            ...(code === 'YAPE' && {
-                yape_number: gatewayResponse.sucursal_yape_number,
-                account_name: gatewayResponse.sucursal_yape_name,
-                amount: gatewayResponse.amount_to_transfer
-            }),
             ...(code === 'PLIN' && {
                 plin_number: gatewayResponse.sucursal_plin_number,
                 account_name: gatewayResponse.sucursal_plin_name,

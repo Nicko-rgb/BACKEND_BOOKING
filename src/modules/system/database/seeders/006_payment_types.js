@@ -15,7 +15,7 @@ const seedFn = async (systemUserId) => {
     }
 
     const paymentTypes = [
-        { country_id: peru.country_id, name: 'Yape', code: 'YAPE', category: 'billetera_digital', provider: 'BCP', description: 'Pago mediante escaneo de código QR o número celular a través de Yape.', icon_url: 'https://www.yape.com.pe/favicon.ico', processing_time: 'Inmediato', is_enabled: true },
+        { country_id: peru.country_id, name: 'Yape', code: 'YAPE', category: 'billetera_digital', provider: 'MercadoPago', description: 'Pago automático con Yape: autoriza el cobro desde tu app con tu número y código de aprobación.', icon_url: 'https://www.yape.com.pe/favicon.ico', processing_time: 'Inmediato', is_enabled: true, commission_percentage: 0.0349, fixed_commission: 1.00 },
         { country_id: peru.country_id, name: 'Plin', code: 'PLIN', category: 'billetera_digital', provider: 'Interbank/BBVA/Scotiabank', description: 'Pago mediante escaneo de código QR o número celular a través de Plin.', icon_url: 'https://plin.com.pe/favicon.ico', processing_time: 'Inmediato', is_enabled: true },
         { country_id: peru.country_id, name: 'Transferencia Bancaria', code: 'BANK_TRANSFER', category: 'transferencia_bancaria', provider: 'Bancos Locales', description: 'Transferencia directa a cuenta bancaria (BCP, BBVA, Interbank, etc.).', icon_url: null, processing_time: '1-24 horas', is_enabled: true },
         { country_id: peru.country_id, name: 'Efectivo', code: 'CASH', category: 'efectivo', provider: 'Local', description: 'Pago presencial en la sucursal.', icon_url: null, processing_time: 'Inmediato', is_enabled: true },
