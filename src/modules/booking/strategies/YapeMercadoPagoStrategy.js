@@ -82,6 +82,7 @@ class YapeMercadoPagoStrategy extends BasePaymentStrategy {
                     transaction_amount: amount,
                     token:              payment_details.yape_token,
                     payment_method_id:  'yape',
+                    installments:       1,
                     description:        `Reserva deportiva #${createdBookings.map(b => b.booking_id).join(', ')}`,
                     payer:              { email, ...(phone ? { phone: { area_code: '51', number: String(phone) } } : {}) },
                     external_reference: externalRef,
